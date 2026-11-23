@@ -281,12 +281,23 @@ spec:
 			By("waiting for Ready=False, reason Stale")
 			Eventually(reason).Should(Equal("Stale"))
 
-			By("checking one event per change of verdict")
+			By("checking one event per change of verdict, not one per check")
 			Eventually(func(g Gomega) {
 				out, err := utils.Run(exec.Command("kubectl", "get", "events", "-n", ns,
 					"--field-selector", "involvedObject.name="+probe, "-o", "jsonpath={.items[*].reason}"))
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(strings.Fields(out)).To(ConsistOf("Live", "Stale"))
+				// A first check can land before the Service answers and record FetchFailed: that is
+				// a real change of verdict, so it is allowed. What is not allowed is a reason twice:
+				// with a check every 5 seconds, an event per check would repeat Live.
+				reasons := strings.Fields(out)
+				g.Expect(reasons).To(ContainElements("Live", "Stale"))
+				seen := map[string]int{}
+				for _, r := range reasons {
+					seen[r]++
+				}
+				for r, n := range seen {
+					g.Expect(n).To(Equal(1), "event %s recorded %d times", r, n)
+				}
 			}).Should(Succeed())
 
 			By("reading the probe's metrics from the manager")
