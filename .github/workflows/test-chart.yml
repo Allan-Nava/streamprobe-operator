@@ -96,11 +96,12 @@ jobs:
           kubectl get streamprobe fake-live
 
       # With the Prometheus Operator's CRDs, the chart's ServiceMonitor and PrometheusRule
-      # (SP-10) must be accepted by the API server, not only rendered.
+      # (SP-10) must be accepted by the API server, not only rendered; and the dashboard ConfigMap (SP-11).
       - name: ServiceMonitor and alerts
         run: |
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm install prometheus-crds prometheus-community/prometheus-operator-crds --wait
-          make helm-deploy HELM_EXTRA_ARGS="--set prometheus.enabled=true"
+          make helm-deploy HELM_EXTRA_ARGS="--set prometheus.enabled=true --set grafana.dashboard.enabled=true"
           kubectl get servicemonitor,prometheusrule -n streamprobe-operator-system
+          kubectl get configmap -n streamprobe-operator-system -l grafana_dashboard=1 -o name | grep dashboard
           kubectl get prometheusrule -n streamprobe-operator-system -o jsonpath='{.items[0].spec.groups[0].rules[*].alert}' | tee /dev/stderr | grep -q StreamNotLive

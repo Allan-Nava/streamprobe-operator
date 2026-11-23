@@ -4,7 +4,7 @@
 
 > This page is **generated** from [BACKLOG.md](BACKLOG.md), the single source of truth for planned work. Regenerate it with `npx backlogsync roadmap` after editing the backlog — CI fails when the two disagree.
 
-**17 items · 9 shipped · 8 open · 5 milestones.**
+**17 items · 10 shipped · 7 open · 5 milestones.**
 
 ## At a glance
 
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **v0.1.0 — A probe that reconciles** | now | `##########` 100% | 0 | 5 |
 | **v0.2.0 — On a real cluster** | next | `########..` 75% | 1 | 3 |
-| **v0.3.0 — Seen from Grafana** | later | `#####.....` 50% | 1 | 1 |
+| **v0.3.0 — Seen from Grafana** | later | `##########` 100% | 0 | 2 |
 | **v0.4.0 — Probes that know more** | later | `..........` 0% | 4 | 0 |
 | **v0.5.0 — Probes as workloads** | later | `..........` 0% | 2 | 0 |
 
@@ -34,7 +34,7 @@
 ## v0.3.0 — Seen from Grafana
 
 - [x] **SP-10** — ServiceMonitor and alerts · med · S · observability · `main`
-- [ ] **SP-11** — Dashboard · low · S · observability
+- [x] **SP-11** — Dashboard · low · S · observability · `main`
 
 ## v0.4.0 — Probes that know more
 

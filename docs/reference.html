@@ -144,6 +144,8 @@ kubectl get sp -o custom-columns=NAME:.metadata.name,REASON:.status.conditions[0
       </table>
     </div>
     <p>If your Prometheus selects rules by a label (with kube-prometheus-stack, <code>release</code>), set it with <code>prometheus.labels</code>.</p>
+    <h3 id="dashboard">Grafana dashboard</h3>
+    <p>The chart carries a dashboard, <code>dist/chart/files/streamprobe-dashboard.json</code>: live and not live streams, a live/not-live timeline per stream, seconds since the live edge moved, playlist fetch time (p50 and p95), segments per minute, checks by verdict, with filters for namespace and stream. With <code>--set grafana.dashboard.enabled=true</code> it becomes a ConfigMap labelled <code>grafana_dashboard: "1"</code>, which Grafana's dashboard sidecar loads (kube-prometheus-stack has one); <code>grafana.dashboard.namespace</code> and <code>.annotations</code> cover a sidecar that watches one namespace or files dashboards in folders. Without the sidecar, import the JSON in Grafana and pick your Prometheus data source.</p>
   </section>
 
   <section aria-labelledby="rbac">

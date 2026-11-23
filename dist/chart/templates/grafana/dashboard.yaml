@@ -1,0 +1,23 @@
+{{- if .Values.grafana.dashboard.enabled }}
+# The Grafana dashboard (files/streamprobe-dashboard.json) as a ConfigMap. Grafana's dashboard
+# sidecar (kube-prometheus-stack ships it) loads every ConfigMap with the label it watches,
+# grafana_dashboard: "1" by default.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ include "streamprobe-operator.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- toYaml .Values.grafana.dashboard.labels | nindent 4 }}
+  {{- with .Values.grafana.dashboard.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ include "streamprobe-operator.resourceName" (dict "suffix" "dashboard" "context" $) }}
+  namespace: {{ .Values.grafana.dashboard.namespace | default .Release.Namespace }}
+data:
+  streamprobe-operator.json: |-
+{{ .Files.Get "files/streamprobe-dashboard.json" | indent 4 }}
+{{- end }}

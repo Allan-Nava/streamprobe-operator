@@ -28,7 +28,8 @@ jobs:
           go mod tidy
           make test
 
-  # The alerts: promtool checks the rules file and runs its unit tests (SP-10).
+  # The alerts: promtool checks the rules file and runs its unit tests (SP-10); and the
+  # dashboard's queries are parsed the same way (SP-11).
   alerts:
     permissions:
       contents: read
@@ -45,3 +46,10 @@ jobs:
             check rules dist/chart/files/streamprobe.rules.yaml
           docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.5.0 \
             test rules test/prometheus/rules_test.yaml
+      # Every query of the Grafana dashboard, parsed by promtool as a recording rule (SP-11).
+      - name: Dashboard queries
+        run: |
+          python3 -c "import json; json.load(open('dist/chart/files/streamprobe-dashboard.json'))"
+          python3 test/grafana/dashboard_queries.py dist/chart/files/streamprobe-dashboard.json > dashboard-rules.yaml
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.5.0 \
+            check rules dashboard-rules.yaml

@@ -71,8 +71,12 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   1 s for 10m; a fixed second, since the target duration is not a metric), StreamprobeDown.
   `promtool test rules` in CI, and the chart installed with them on kind against the Prometheus
   Operator's CRDs. <!-- sp: prio=med size=S labels=observability ver=main -->
-- [ ] **SP-11 — Dashboard**: a Grafana dashboard as JSON in the repository (and the chart):
-  live/not live per stream, the live edge over time, playlist latency percentiles. <!-- sp: prio=low size=S labels=observability -->
+- [x] **SP-11 — Dashboard**: a Grafana dashboard as JSON in the repository (and the chart):
+  live/not live per stream, the live edge over time, playlist latency percentiles. Done:
+  `dist/chart/files/streamprobe-dashboard.json`, nine panels with namespace and stream filters,
+  a ConfigMap for Grafana's sidecar behind `grafana.dashboard.enabled`; CI parses every query
+  with promtool (`test/grafana/dashboard_queries.py`) and installs the ConfigMap on kind. Not yet
+  looked at in a real Grafana. <!-- sp: prio=low size=S labels=observability ver=main -->
 
 ## v0.4.0 — Probes that know more <!-- ms: phase=later -->
 

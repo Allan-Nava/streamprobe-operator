@@ -103,6 +103,13 @@ ServiceMonitor and a PrometheusRule with three alerts (rules in
 | `StreamPlaylistSlow` | 95% of a stream's playlist fetches over 1 s, for 10 minutes |
 | `StreamprobeDown` | Prometheus cannot scrape the operator for 5 minutes |
 
+A Grafana dashboard comes with the chart (`dist/chart/files/streamprobe-dashboard.json`):
+live and not live streams, a live/not-live timeline per stream, seconds since the live edge moved,
+playlist fetch p50 and p95, segments per minute, checks by verdict, filtered by namespace and
+stream. `--set grafana.dashboard.enabled=true` puts it in a ConfigMap labelled
+`grafana_dashboard: "1"`, which Grafana's dashboard sidecar (kube-prometheus-stack) loads; or
+import the JSON by hand. Its queries are parsed by promtool in CI.
+
 ## Design notes
 
 - **Periodic work in a level-based controller.** A reconcile checks the stream only when the

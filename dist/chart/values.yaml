@@ -200,6 +200,19 @@ prometheus:
   ##
   # annotations: {}
 
+## The Grafana dashboard (files/streamprobe-dashboard.json), as a ConfigMap for Grafana's
+## dashboard sidecar. Off by default; the JSON can also be imported by hand.
+grafana:
+  dashboard:
+    enabled: false
+    # The label the sidecar watches (kube-prometheus-stack's default).
+    labels:
+      grafana_dashboard: "1"
+    # Where the sidecar looks, if it watches one namespace only; empty: the release's.
+    namespace: ""
+    # e.g. grafana_folder: Streaming, for the sidecar's folder annotation
+    annotations: {}
+
 ## Network policies for controlling traffic flow.
 ## Enable to restrict ingress to the controller manager.
 ##

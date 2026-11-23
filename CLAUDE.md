@@ -67,6 +67,10 @@ BACKLOG.md                           planned work, source of truth; ROADMAP.md g
   templating, so promtool can read it); a changed alert changes `test/prometheus/rules_test.yaml`,
   the README and `docs/reference.html` too. A chart regeneration must keep `files/`, the
   `prometheus/streamprobe-rules.yaml` template and `prometheus.rules` in values.
+- **The dashboard is `dist/chart/files/streamprobe-dashboard.json`**, plain JSON: a new metric
+  that matters gets a panel, and every query must survive `test/grafana/dashboard_queries.py`
+  plus `promtool check rules` (Grafana variables are substituted there; add a new one to its
+  table).
 - **The chart follows `config/`.** After a change to the CRD, RBAC or manager manifests, run
   `kubebuilder edit --plugins=helm/v2-alpha` again, restore our `Chart.yaml` fields and the
   empty `manager.image.tag` (a released chart must install the image of its own version), and
