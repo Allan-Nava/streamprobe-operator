@@ -38,9 +38,12 @@ by the controller itself, the result in the status, events and metrics.
 
 From envtest to a cluster: the image, the install, and a test that runs the operator for real.
 
-- [ ] **SP-6 — End-to-end on kind**: the kubebuilder e2e suite green in CI on a kind cluster,
+- [x] **SP-6 — End-to-end on kind**: the kubebuilder e2e suite green in CI on a kind cluster,
   plus a test that applies a StreamProbe against a stream served inside the cluster and waits
-  for Ready=True, then stops the stream and waits for Stale. <!-- sp: prio=high size=M labels=ci -->
+  for Ready=True, then stops the stream and waits for Stale. Done: a fake live origin
+  (`test/e2e/testdata/fake-hls.yaml`, stdlib Python in a ConfigMap, 1-second segments, `GET
+  /stop` freezes it); the test waits for Live, freezes it, waits for Stale, and checks the two
+  events and the probe's series on the manager's metrics endpoint. <!-- sp: prio=high size=M labels=ci ver=main -->
 - [x] **SP-7 — Image and releases**: multi-arch image (amd64, arm64) on GHCR from a tag, the
   CRD and the install manifest (`make build-installer`) attached to the GitHub release. Done in
   `image.yml`: `:main` and `:sha-<commit>` on every push to main, `:X.Y.Z`, `:X.Y`, `:latest` and

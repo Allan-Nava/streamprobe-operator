@@ -134,7 +134,7 @@ Interval metav1.Duration `json:"interval,omitzero"`</code></pre>
     <li><b>Pure tests.</b> The parser, and every rule of <code>evaluate</code>, as tables.</li>
     <li><b>The check against a fake origin.</b> The prober runs against <code>httptest</code> servers: a multivariant playlist followed to its variant, a missing segment, an HTML page instead of a playlist.</li>
     <li><b>envtest.</b> A real <code>kube-apiserver</code> and <code>etcd</code>, started by the test as plain processes: no Docker, no nodes, no Pods. The CRD is installed for real, so its defaults and its validation are tested as the API server applies them. The reconcile loop runs against it with a fake prober and a fake clock: Live, then Stale when the edge stops, one event per change, failures counted and cleared, a spec change checked at once, metrics dropped on delete.</li>
-    <li><b>End to end on kind.</b> The kubebuilder suite builds the image, deploys the operator into a kind cluster in CI and checks that it runs and serves its metrics.</li>
+    <li><b>End to end on kind.</b> In CI the suite builds the image and deploys the operator into a kind cluster, the way a user would. Next to it runs a fake live origin: a Python script in a ConfigMap that serves a playlist of one-second segments whose live edge moves with the clock, until a <code>GET /stop</code> freezes it. The test creates a StreamProbe for it, waits for <code>Live</code>, freezes the stream, waits for <code>Stale</code>, then checks the two events and reads the probe's series from the manager's metrics endpoint. This is the part envtest cannot do: real Pods, a Service, cluster DNS, the operator's own RBAC and image.</li>
   </ul>
 
   <h2 id="nomad">10. If you know Nomad</h2>

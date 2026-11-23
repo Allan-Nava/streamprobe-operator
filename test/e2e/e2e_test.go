@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -205,35 +206,7 @@ var _ = Describe("Manager", Ordered, func() {
 			// +kubebuilder:scaffold:e2e-metrics-webhooks-readiness
 
 			By("creating the curl-metrics pod to access the metrics endpoint")
-			cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
-				"--namespace", namespace,
-				"--image=curlimages/curl:latest",
-				"--overrides",
-				fmt.Sprintf(`{
-					"spec": {
-						"containers": [{
-							"name": "curl",
-							"image": "curlimages/curl:latest",
-							"command": ["/bin/sh", "-c"],
-							"args": [
-								"for i in $(seq 1 30); do curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics && exit 0 || sleep 2; done; exit 1"
-							],
-							"securityContext": {
-								"readOnlyRootFilesystem": true,
-								"allowPrivilegeEscalation": false,
-								"capabilities": {
-									"drop": ["ALL"]
-								},
-								"runAsNonRoot": true,
-								"runAsUser": 1000,
-								"seccompProfile": {
-									"type": "RuntimeDefault"
-								}
-							}
-						}],
-						"serviceAccountName": "%s"
-					}
-				}`, token, metricsServiceName, namespace, serviceAccountName))
+			cmd = curlMetricsPod("curl-metrics", token)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
 
@@ -260,15 +233,83 @@ var _ = Describe("Manager", Ordered, func() {
 
 		// +kubebuilder:scaffold:e2e-webhooks-checks
 
-		// TODO: Customize the e2e test suite with scenarios specific to your project.
-		// Consider applying sample/CR(s) and check their status and/or verifying
-		// the reconciliation by using the metrics, i.e.:
-		// metricsOutput, err := getMetricsOutput()
-		// Expect(err).NotTo(HaveOccurred(), "Failed to retrieve logs from curl pod")
-		// Expect(metricsOutput).To(ContainSubstring(
-		//    fmt.Sprintf(`controller_runtime_reconcile_total{controller="%s",result="success"} 1`,
-		//    strings.ToLower(<Kind>),
-		// ))
+		It("watches a live stream: Live while it moves, Stale when it stops", func() {
+			const ns = "streamprobe-e2e"
+			const probe = "fake-live"
+
+			By("starting a fake live HLS origin in the cluster")
+			_, err := utils.Run(exec.Command("kubectl", "create", "ns", ns))
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() { _, _ = utils.Run(exec.Command("kubectl", "delete", "ns", ns, "--wait=false")) })
+			_, err = utils.Run(exec.Command("kubectl", "apply", "-n", ns, "-f", "test/e2e/testdata/fake-hls.yaml"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = utils.Run(exec.Command("kubectl", "rollout", "status", "-n", ns, "deploy/fake-hls", "--timeout=3m"))
+			Expect(err).NotTo(HaveOccurred(), "the fake origin did not start")
+
+			By("creating a StreamProbe for it, checked every 5 seconds")
+			cmd := exec.Command("kubectl", "apply", "-n", ns, "-f", "-")
+			cmd.Stdin = strings.NewReader(fmt.Sprintf(`apiVersion: streaming.allan-nava.github.io/v1alpha1
+kind: StreamProbe
+metadata:
+  name: %s
+spec:
+  url: http://fake-hls.%s.svc.cluster.local:8080/live.m3u8
+  interval: 5s
+`, probe, ns))
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+
+			reason := func(g Gomega) string {
+				out, err := utils.Run(exec.Command("kubectl", "get", "streamprobe", probe, "-n", ns,
+					"-o", `jsonpath={.status.conditions[?(@.type=="Ready")].reason}`))
+				g.Expect(err).NotTo(HaveOccurred())
+				return out
+			}
+
+			By("waiting for Ready=True, reason Live")
+			Eventually(reason).Should(Equal("Live"))
+			out, err := utils.Run(exec.Command("kubectl", "get", "streamprobe", probe, "-n", ns,
+				"-o", "jsonpath={.status.liveEdge}"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).NotTo(BeEmpty())
+
+			By("freezing the stream: the playlist keeps answering, the live edge stops")
+			_, err = utils.Run(exec.Command("kubectl", "exec", "-n", ns, "deploy/fake-hls", "--",
+				"python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/stop').read()"))
+			Expect(err).NotTo(HaveOccurred())
+
+			By("waiting for Ready=False, reason Stale")
+			Eventually(reason).Should(Equal("Stale"))
+
+			By("checking one event per change of verdict")
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "get", "events", "-n", ns,
+					"--field-selector", "involvedObject.name="+probe, "-o", "jsonpath={.items[*].reason}"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(strings.Fields(out)).To(ConsistOf("Live", "Stale"))
+			}).Should(Succeed())
+
+			By("reading the probe's metrics from the manager")
+			token, err := serviceAccountToken()
+			Expect(err).NotTo(HaveOccurred())
+			_, err = utils.Run(curlMetricsPod("curl-streamprobe", token))
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				_, _ = utils.Run(exec.Command("kubectl", "delete", "pod", "curl-streamprobe", "-n", namespace))
+			})
+			Eventually(func(g Gomega) {
+				out, err := utils.Run(exec.Command("kubectl", "get", "pod", "curl-streamprobe", "-n", namespace,
+					"-o", "jsonpath={.status.phase}"))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(Equal("Succeeded"))
+			}, 3*time.Minute).Should(Succeed())
+			metrics, err := utils.Run(exec.Command("kubectl", "logs", "curl-streamprobe", "-n", namespace))
+			Expect(err).NotTo(HaveOccurred())
+			labels := fmt.Sprintf(`name="%s",namespace="%s"`, probe, ns)
+			Expect(metrics).To(ContainSubstring("streamprobe_ready{" + labels + "} 0"))
+			Expect(metrics).To(MatchRegexp(`streamprobe_checks_total\{` + labels + `,reason="Live"\} [1-9]`))
+			Expect(metrics).To(MatchRegexp(`streamprobe_checks_total\{` + labels + `,reason="Stale"\} [1-9]`))
+		})
 	})
 })
 
@@ -326,4 +367,38 @@ type tokenRequest struct {
 	Status struct {
 		Token string `json:"token"`
 	} `json:"status"`
+}
+
+// curlMetricsPod is the command that starts a pod which reads the manager's metrics endpoint once,
+// with the service account's token, and prints them to its log.
+func curlMetricsPod(name, token string) *exec.Cmd {
+	return exec.Command("kubectl", "run", name, "--restart=Never",
+		"--namespace", namespace,
+		"--image=curlimages/curl:latest",
+		"--overrides",
+		fmt.Sprintf(`{
+			"spec": {
+				"containers": [{
+					"name": "curl",
+					"image": "curlimages/curl:latest",
+					"command": ["/bin/sh", "-c"],
+					"args": [
+						"for i in $(seq 1 30); do curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics && exit 0 || sleep 2; done; exit 1"
+					],
+					"securityContext": {
+						"readOnlyRootFilesystem": true,
+						"allowPrivilegeEscalation": false,
+						"capabilities": {
+							"drop": ["ALL"]
+						},
+						"runAsNonRoot": true,
+						"runAsUser": 1000,
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					}
+				}],
+				"serviceAccountName": "%s"
+			}
+		}`, token, metricsServiceName, namespace, serviceAccountName))
 }

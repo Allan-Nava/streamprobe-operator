@@ -29,7 +29,8 @@ internal/controller/streamprobe_controller.go   Reconcile: when to check, write,
 internal/controller/metrics.go       the Prometheus series
 config/crd/bases/, config/rbac/role.yaml   GENERATED (make manifests), never edited
 config/samples/                      example resources (edited by hand)
-test/e2e/                            kind end-to-end suite (make test-e2e)
+test/e2e/                            kind end-to-end suite (make test-e2e); testdata/fake-hls.yaml is
+                                     the fake live origin it probes (Live, then Stale after GET /stop)
 docs/                                the GitHub Pages site: index (overview), how-it-works (the guide),
                                      reference; plain HTML with nava-ui from the CDN; pages.yml deploys it
 BACKLOG.md                           planned work, source of truth; ROADMAP.md generated from it

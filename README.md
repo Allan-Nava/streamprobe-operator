@@ -143,7 +143,7 @@ make test       # unit tests and envtest (a real kube-apiserver and etcd, no clu
 make lint       # golangci-lint
 make manifests  # the CRD and RBAC, from the markers in api/ and internal/controller
 make generate   # DeepCopy methods
-make test-e2e   # end to end on a kind cluster
+make test-e2e   # end to end on a kind cluster: the operator against a fake live origin
 ```
 
 Layout:
@@ -154,7 +154,7 @@ internal/hls/                   the playlist parser
 internal/probe/                 one check over HTTP
 internal/controller/            the reconcile loop, the evaluate rules, the metrics
 config/                         kustomize: CRD, RBAC, manager, samples (CRD and RBAC generated)
-test/e2e/                       the kind suite
+test/e2e/                       the kind suite; testdata/fake-hls.yaml is a fake live origin
 docs/                           the GitHub Pages site (plain HTML, nava-ui from the CDN)
 ```
 
