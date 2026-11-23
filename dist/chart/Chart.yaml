@@ -1,0 +1,23 @@
+apiVersion: v2
+name: streamprobe-operator
+description: A Kubernetes operator that watches live HLS streams. The chart installs the StreamProbe CRD, RBAC and the controller.
+home: https://allan-nava.github.io/streamprobe-operator/
+sources:
+  - https://github.com/Allan-Nava/streamprobe-operator
+maintainers:
+  - name: Allan Nava
+    url: https://github.com/Allan-Nava
+type: application
+
+version: 0.1.0
+appVersion: "main"
+
+keywords:
+  - kubernetes
+  - operator
+  - hls
+  - live-streaming
+  - monitoring
+
+annotations:
+  kubebuilder.io/generated-by: kubebuilder

@@ -78,6 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,6 +88,16 @@ jobs:
           go-version-file: go.mod
       - name: The install manifest, pinned to this release's image
         run: make build-installer IMG="$IMAGE:${{ needs.image.outputs.version }}"
+      # The chart as an OCI artifact next to the image: chart version and appVersion are the
+      # release's, so the chart installs the image of the same tag.
+      # helm install streamprobe-operator oci://ghcr.io/allan-nava/charts/streamprobe-operator --version X.Y.Z
+      - name: Helm chart on GHCR
+        env:
+          VERSION: ${{ needs.image.outputs.version }}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm package dist/chart --version "$VERSION" --app-version "$VERSION" -d /tmp/chart
+          helm push "/tmp/chart/streamprobe-operator-$VERSION.tgz" oci://ghcr.io/allan-nava/charts
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

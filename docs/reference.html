@@ -163,6 +163,9 @@ make undeploy                     # remove the controller
 make uninstall                    # remove the CRD, and with it every StreamProbe</code></pre>
     <p>The image is <code>ghcr.io/allan-nava/streamprobe-operator</code>, for linux/amd64 and linux/arm64: <code>:main</code> and <code>:sha-&lt;commit&gt;</code> follow the main branch, <code>:X.Y.Z</code>, <code>:X.Y</code> and <code>:latest</code> the releases. Each release also attaches <code>install.yaml</code>, the whole install pinned to its image:</p>
 <pre tabindex="0"><code>kubectl apply -f https://github.com/Allan-Nava/streamprobe-operator/releases/latest/download/install.yaml</code></pre>
+    <p>With Helm, from the chart published with each release (same version as the image):</p>
+<pre tabindex="0"><code>helm install streamprobe-operator oci://ghcr.io/allan-nava/charts/streamprobe-operator \
+  --version &lt;X.Y.Z&gt; --namespace streamprobe-system --create-namespace</code></pre>
     <p>For development: <code>make test</code> (unit tests and envtest, no Docker), <code>make lint</code>, <code>make manifests generate</code> after changing the markers, <code>make test-e2e</code> on kind.</p>
   </section>
 

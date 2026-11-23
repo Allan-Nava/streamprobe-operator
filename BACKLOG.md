@@ -49,8 +49,12 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   `image.yml`: `:main` and `:sha-<commit>` on every push to main, `:X.Y.Z`, `:X.Y`, `:latest` and
   a release with `install.yaml` on a tag; the builder cross-compiles instead of running under
   QEMU. <!-- sp: prio=high size=M labels=deploy,ci ver=main -->
-- [ ] **SP-8 — Helm chart**: a chart for the operator (CRD, RBAC, Deployment, metrics Service),
-  linted and installed on kind in CI, published as an OCI artifact on GHCR. <!-- sp: prio=med size=M labels=deploy -->
+- [x] **SP-8 — Helm chart**: a chart for the operator (CRD, RBAC, Deployment, metrics Service),
+  linted and installed on kind in CI, published as an OCI artifact on GHCR. Done: `dist/chart/`
+  generated from `config/` by kubebuilder's helm plugin; `test-chart.yml` lints it, installs it on
+  kind and waits for a StreamProbe on the fake origin to be Live; a tag pushes it to
+  `oci://ghcr.io/allan-nava/charts/streamprobe-operator` with the release's version, and the empty
+  image tag makes it install the image of that version. <!-- sp: prio=med size=M labels=deploy ver=main -->
 - [ ] **SP-9 — Running on the Raspberry Pi**: k3s on the Pi 4, the operator installed by
   ArgoCD from this repository, a few public live streams probed around the clock; the steps in
   `docs/`. <!-- sp: prio=med size=M labels=deploy,docs -->

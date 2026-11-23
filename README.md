@@ -132,7 +132,16 @@ image), so a cluster needs no clone:
 kubectl apply -f https://github.com/Allan-Nava/streamprobe-operator/releases/latest/download/install.yaml
 ```
 
-With your own build: `make docker-build docker-push deploy IMG=<registry>/streamprobe-operator:<tag>`.
+With Helm, from the chart published with each release (an OCI artifact on GHCR, same version
+as the image):
+
+```sh
+helm install streamprobe-operator oci://ghcr.io/allan-nava/charts/streamprobe-operator \
+  --version <X.Y.Z> --namespace streamprobe-system --create-namespace
+```
+
+The chart is in `dist/chart/` (`make helm-deploy` installs it from the clone). With your own
+build: `make docker-build docker-push deploy IMG=<registry>/streamprobe-operator:<tag>`.
 
 `make undeploy` and `make uninstall` remove it.
 
@@ -154,12 +163,12 @@ internal/hls/                   the playlist parser
 internal/probe/                 one check over HTTP
 internal/controller/            the reconcile loop, the evaluate rules, the metrics
 config/                         kustomize: CRD, RBAC, manager, samples (CRD and RBAC generated)
+dist/chart/                     the Helm chart, generated from config/ by kubebuilder's helm plugin
 test/e2e/                       the kind suite; testdata/fake-hls.yaml is a fake live origin
 docs/                           the GitHub Pages site (plain HTML, nava-ui from the CDN)
 ```
 
-Planned work is in [BACKLOG.md](BACKLOG.md) (the roadmap view is [ROADMAP.md](ROADMAP.md)):
-a Helm chart, an end-to-end test against a stream served in the cluster, running on k3s with ArgoCD, alerts and
+Planned work is in [BACKLOG.md](BACKLOG.md) (the roadmap view is [ROADMAP.md](ROADMAP.md)): running on k3s with ArgoCD, alerts and
 a dashboard, then probes of every variant, DASH, and probe Pods for heavier checks.
 
 ## License
