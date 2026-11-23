@@ -1,0 +1,15 @@
+# A live test stream: Unified Streaming's public live demo (2 s segments). Ready=True with reason Live while it
+# runs; point url at your own origin to watch your stream.
+apiVersion: streaming.allan-nava.github.io/v1alpha1
+kind: StreamProbe
+metadata:
+  labels:
+    app.kubernetes.io/name: streamprobe-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: unified-live-demo
+spec:
+  url: https://demo.unified-streaming.com/k8s/live/stable/live.isml/.m3u8
+  interval: 30s
+  timeout: 10s
+  # staleAfter: 1m   # unset: three target durations, read from the playlist
+  checkSegment: true

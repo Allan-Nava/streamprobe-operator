@@ -1,0 +1,27 @@
+# This rule is not used by the project streamprobe-operator itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants full permissions ('*') over streaming.allan-nava.github.io.
+# This role is intended for users authorized to modify roles and bindings within the cluster,
+# enabling them to delegate specific permissions to other users or groups as needed.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: streamprobe-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: streamprobe-admin-role
+rules:
+- apiGroups:
+  - streaming.allan-nava.github.io
+  resources:
+  - streamprobes
+  verbs:
+  - '*'
+- apiGroups:
+  - streaming.allan-nava.github.io
+  resources:
+  - streamprobes/status
+  verbs:
+  - get

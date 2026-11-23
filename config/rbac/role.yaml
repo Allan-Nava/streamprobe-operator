@@ -1,0 +1,29 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - streaming.allan-nava.github.io
+  resources:
+  - streamprobes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - streaming.allan-nava.github.io
+  resources:
+  - streamprobes/status
+  verbs:
+  - get
+  - patch
+  - update
