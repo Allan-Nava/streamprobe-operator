@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kubebuilder from zero — streamprobe-operator</title>
+<meta name="description" content="Kubebuilder explained from zero, on a real operator: what it generates, which files you write and which you never touch, markers, the make targets, the everyday loop, step-by-step recipes, the usual mistakes and a glossary.">
+<meta name="author" content="Allan Nava">
+<link rel="canonical" href="https://allan-nava.github.io/streamprobe-operator/kubebuilder.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="streamprobe-operator">
+<meta property="og:title" content="Kubebuilder from zero — streamprobe-operator">
+<meta property="og:description" content="What kubebuilder generates, what you write, the make targets and the everyday loop, explained without assuming anything.">
+<meta property="og:url" content="https://allan-nava.github.io/streamprobe-operator/kubebuilder.html">
+<meta property="og:image" content="https://allan-nava.github.io/streamprobe-operator/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('nv-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@v0.10.0/dist/nava-ui.min.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="nv-skip-link" href="#main">Skip to content</a>
+
+<header class="nv-nav">
+  <div class="nv-nav__inner">
+    <a class="nv-nav__brand" href="./">
+      <img class="nv-nav__avatar" src="assets/logo.svg" alt="" width="30" height="30">
+      <span class="nv-nav__name">streamprobe</span>
+    </a>
+    <ul class="nv-nav__links">
+      <li><a class="nv-nav__link" href="./">Overview</a></li>
+      <li><a class="nv-nav__link" href="how-it-works.html">How it works</a></li>
+      <li><a class="nv-nav__link" href="kubebuilder.html" aria-current="page">Kubebuilder</a></li>
+      <li><a class="nv-nav__link" href="reference.html">Reference</a></li>
+      <li><a class="nv-nav__link" href="raspberry-pi.html">On a Pi</a></li>
+      <li><a class="nv-nav__link" href="https://github.com/Allan-Nava/streamprobe-operator">GitHub</a></li>
+    </ul>
+    <button class="nv-nav__icon" type="button" data-nv-theme-toggle>
+      <svg class="nv-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="nv-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="nv-wrap nv-wrap--large prose" id="main" data-nv-copy>
+
+  <div class="nv-lede">
+    <p class="nv-lede__kicker">Guide</p>
+    <h1 class="nv-lede__title">Kubebuilder from zero</h1>
+    <p class="nv-lede__sub">What kubebuilder is, what it wrote in this repository, which files are yours and which you must never touch, and what to type when you want to change something. Nothing assumed: if a word is new, it is in the <a href="#glossary">glossary</a> at the end.</p>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <b>On this page</b>
+    <ol>
+      <li><a href="#one-sentence">In one sentence</a></li>
+      <li><a href="#three-tools">Three tools with similar names</a></li>
+      <li><a href="#started">How this repository was started</a></li>
+      <li><a href="#files">Your files and generated files</a></li>
+      <li><a href="#markers">Markers: comments that write YAML</a></li>
+      <li><a href="#loop">The everyday loop</a></li>
+      <li><a href="#recipe-field">Recipe: add a field to the spec</a></li>
+      <li><a href="#recipe-rbac">Recipe: let the controller read something new</a></li>
+      <li><a href="#make">The make targets you will use</a></li>
+      <li><a href="#envtest">envtest, in plain words</a></li>
+      <li><a href="#plugins">Plugins: the Helm chart</a></li>
+      <li><a href="#mistakes">The usual mistakes, and how they look</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="one-sentence">1. In one sentence</h2>
+  <p><b>Kubebuilder writes the boring 80% of an operator for you, and leaves you the 20% that is your idea.</b> The boring part is the same for every operator: the project layout, the Kubernetes YAML for the new resource, the permissions, the Dockerfile, the Makefile, the test setup. Your part is two files: what the resource looks like, and what the controller does with it.</p>
+  <p>If you have used <code>rails new</code> or <code>create-react-app</code>: same idea, for Kubernetes controllers in Go.</p>
+
+  <h2 id="three-tools">2. Three tools with similar names</h2>
+  <p>This is the first thing that confuses everyone. There are three different things, used at three different moments:</p>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="The three tools">
+    <table class="nv-table">
+      <thead><tr><th>Tool</th><th>What it is</th><th>When you use it</th></tr></thead>
+      <tbody>
+        <tr><td><b>kubebuilder</b></td><td>A command-line program that creates files (scaffolding).</td><td>Rarely: to start the project, to add a new kind of resource, to add a plugin. It is not needed to build or run anything.</td></tr>
+        <tr><td><b>controller-gen</b></td><td>A program that reads special comments in your Go code (markers) and writes YAML and Go from them.</td><td>Every time you change the types or the permissions, through <code>make manifests generate</code>. The Makefile downloads it into <code>bin/</code>.</td></tr>
+        <tr><td><b>controller-runtime</b></td><td>A Go library: the engine of the operator (watching objects, the queue, calling your code, metrics, leader election).</td><td>All the time, without noticing: it is imported by <code>cmd/main.go</code> and the controller, and runs inside the operator.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Kubebuilder writes code that <em>uses</em> controller-runtime, and a Makefile that <em>runs</em> controller-gen. After the first day you mostly forget kubebuilder exists.</p>
+
+  <h2 id="started">3. How this repository was started</h2>
+  <p>Two commands made the skeleton. You never need to run them again; they are here so you know where everything came from.</p>
+<pre tabindex="0"><code>kubebuilder init --domain allan-nava.github.io --repo github.com/Allan-Nava/streamprobe-operator
+kubebuilder create api --group streaming --version v1alpha1 --kind StreamProbe --resource --controller</code></pre>
+  <ul>
+    <li><code>init</code> made the project: <code>cmd/main.go</code>, the Makefile, the Dockerfile, <code>config/</code> with the deployment YAML, the test setup, the CI workflows.</li>
+    <li><code>create api</code> made the new resource: its type in <code>api/v1alpha1/streamprobe_types.go</code>, an empty controller in <code>internal/controller/streamprobe_controller.go</code>, and a test.</li>
+  </ul>
+  <p>The three words of the second command build the resource's name. <b>Group</b> <code>streaming</code> + <b>domain</b> <code>allan-nava.github.io</code> = the API group <code>streaming.allan-nava.github.io</code>. <b>Version</b> <code>v1alpha1</code> says "early, may change". <b>Kind</b> <code>StreamProbe</code> is the name you write in YAML. Together they make the <code>apiVersion</code> and <code>kind</code> at the top of every StreamProbe:</p>
+<pre tabindex="0"><code>apiVersion: streaming.allan-nava.github.io/v1alpha1
+kind: StreamProbe</code></pre>
+  <p>The file <code>PROJECT</code> at the root is kubebuilder's own notebook of what it created. It says "DO NOT EDIT", and it means it.</p>
+
+  <h2 id="files">4. Your files and generated files</h2>
+  <p>The single most important thing to learn. Some files you write; some are <b>generated</b> from yours and get overwritten. Editing a generated file is wasted work: the next <code>make</code> puts it back.</p>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Who writes which file">
+    <table class="nv-table">
+      <thead><tr><th>Path</th><th>Who writes it</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>api/v1alpha1/streamprobe_types.go</code></td><td><b>You</b></td><td>The shape of a StreamProbe: spec and status, plus markers.</td></tr>
+        <tr><td><code>internal/controller/*.go</code></td><td><b>You</b></td><td>What happens to a StreamProbe: the reconcile loop.</td></tr>
+        <tr><td><code>internal/hls/</code>, <code>internal/probe/</code></td><td><b>You</b></td><td>Plain Go, nothing to do with kubebuilder.</td></tr>
+        <tr><td><code>config/samples/</code></td><td><b>You</b></td><td>Example StreamProbes.</td></tr>
+        <tr><td><code>api/v1alpha1/zz_generated.deepcopy.go</code></td><td>Generated (<code>make generate</code>)</td><td>Copy functions every Kubernetes type needs.</td></tr>
+        <tr><td><code>config/crd/bases/*.yaml</code></td><td>Generated (<code>make manifests</code>)</td><td>The CRD: what the API server knows about StreamProbe.</td></tr>
+        <tr><td><code>config/rbac/role.yaml</code></td><td>Generated (<code>make manifests</code>)</td><td>The operator's permissions.</td></tr>
+        <tr><td><code>dist/chart/</code></td><td>Generated (helm plugin), then adjusted</td><td>The Helm chart; see <a href="#plugins">plugins</a>.</td></tr>
+        <tr><td><code>cmd/main.go</code>, <code>Makefile</code>, <code>Dockerfile</code>, the rest of <code>config/</code></td><td>Scaffolded once, then yours</td><td>Written by kubebuilder on day one; edit them when you need to (the prober is wired in <code>main.go</code>).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A trick to tell them apart: generated files have a name starting with <code>zz_</code>, or sit in <code>config/crd/bases</code> and <code>config/rbac/role.yaml</code>, or say "Code generated … DO NOT EDIT" at the top.</p>
+
+  <h2 id="markers">5. Markers: comments that write YAML</h2>
+  <p>A <b>marker</b> is a Go comment that starts with <code>// +</code>. Go ignores it; controller-gen reads it and turns it into YAML. This is how the Go type becomes the rules the API server enforces.</p>
+<pre tabindex="0"><code>// interval is how often the stream is checked.
+// +kubebuilder:default="30s"
+// +optional
+Interval metav1.Duration `json:"interval,omitzero"`</code></pre>
+  <p>That comment becomes, in the CRD, "the field <code>interval</code> is optional and, if missing, is <code>30s</code>". The API server fills it in before anyone sees the object. The ones used here:</p>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Markers used in this repository">
+    <table class="nv-table">
+      <thead><tr><th>Marker</th><th>Where</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>+required</code> / <code>+optional</code></td><td>a field</td><td>Must be present / may be missing.</td></tr>
+        <tr><td><code>+kubebuilder:default=…</code></td><td>a field</td><td>Value when missing.</td></tr>
+        <tr><td><code>+kubebuilder:validation:Pattern=…</code></td><td>a field</td><td>A regular expression the value must match (the URL must start with http).</td></tr>
+        <tr><td><code>+kubebuilder:validation:MaxLength=…</code></td><td>a field</td><td>Longest allowed string.</td></tr>
+        <tr><td><code>+kubebuilder:subresource:status</code></td><td>the type</td><td>The status is written separately from the spec.</td></tr>
+        <tr><td><code>+kubebuilder:printcolumn:…</code></td><td>the type</td><td>A column in <code>kubectl get</code>.</td></tr>
+        <tr><td><code>+kubebuilder:resource:shortName=sp</code></td><td>the type</td><td><code>kubectl get sp</code> works.</td></tr>
+        <tr><td><code>+kubebuilder:rbac:groups=…,resources=…,verbs=…</code></td><td>the controller</td><td>A permission in <code>role.yaml</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The full list is in the <a href="https://book.kubebuilder.io/reference/markers">kubebuilder book</a>. A marker with a typo is silently ignored, so check the generated YAML after adding one.</p>
+
+  <h2 id="loop">6. The everyday loop</h2>
+  <p>Almost every change follows the same four steps:</p>
+<pre class="term" tabindex="0"><code>1. edit       api/…_types.go  or  internal/controller/…      <span class="dim"># your files</span>
+2. generate   make manifests generate                          <span class="dim"># CRD, RBAC, DeepCopy from the markers</span>
+3. test       make test   (and make lint)                       <span class="dim"># unit tests + envtest, no cluster needed</span>
+4. try        make install run                                 <span class="dim"># CRD into a real cluster, controller on your laptop</span></code></pre>
+  <p>Step 4 needs a cluster (kind on a laptop is enough). <code>make run</code> runs the controller as a normal program on your machine, talking to the cluster: you see its logs in the terminal and stop it with Ctrl+C. Nothing is built into an image. When it works, commit your files <b>and</b> the generated ones together.</p>
+
+  <h2 id="recipe-field">7. Recipe: add a field to the spec</h2>
+  <p>Say a StreamProbe should accept a user agent to send to the origin. From start to finish:</p>
+  <ol>
+    <li><b>The type.</b> In <code>api/v1alpha1/streamprobe_types.go</code>, inside <code>StreamProbeSpec</code>:
+<pre tabindex="0"><code>// userAgent is sent with every request; empty means the operator's own.
+// +kubebuilder:validation:MaxLength=256
+// +optional
+UserAgent string `json:"userAgent,omitempty"`</code></pre>
+      The comment above the field becomes its description in <code>kubectl explain streamprobe.spec.userAgent</code>. The <code>json:"…"</code> tag is the name in YAML.</li>
+    <li><b>Generate.</b> <code>make manifests generate</code>. Look at the diff of <code>config/crd/bases/…yaml</code>: the new field is there with its rule.</li>
+    <li><b>Use it.</b> In the controller, read <code>sp.Spec.UserAgent</code> and pass it to the prober.</li>
+    <li><b>Test it.</b> A case in the envtest suite that sets the field; <code>make test</code>.</li>
+    <li><b>Document it.</b> A row in the <a href="reference.html#spec">reference</a> and the README.</li>
+    <li><b>Ship the CRD.</b> In a real cluster the CRD must be updated (<code>make install</code>, or the chart after regenerating it) <em>before</em> anyone uses the field. See the first mistake below for why.</li>
+  </ol>
+
+  <h2 id="recipe-rbac">8. Recipe: let the controller read something new</h2>
+  <p>The operator may only do what its ServiceAccount is allowed to. Say it must read Secrets (for a token in the spec):</p>
+  <ol>
+    <li>Above <code>Reconcile</code>, add a marker:
+<pre tabindex="0"><code>// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch</code></pre>
+      <code>groups=""</code> is the core group (Pods, Secrets, ConfigMaps live there).</li>
+    <li><code>make manifests</code>: the permission appears in <code>config/rbac/role.yaml</code>.</li>
+    <li>Use it in the code. Never write a Role by hand for the operator: the next <code>make manifests</code> would not know about it.</li>
+  </ol>
+
+  <h2 id="make">9. The make targets you will use</h2>
+  <p><code>make help</code> lists them all. The ones that matter:</p>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Make targets">
+    <table class="nv-table">
+      <thead><tr><th>Command</th><th>What it does</th><th>Needs a cluster?</th></tr></thead>
+      <tbody>
+        <tr><td><code>make manifests</code></td><td>CRD and RBAC YAML from the markers.</td><td>No</td></tr>
+        <tr><td><code>make generate</code></td><td>The <code>zz_generated</code> Go code.</td><td>No</td></tr>
+        <tr><td><code>make test</code></td><td>Runs manifests, generate, fmt, vet, then all tests with envtest.</td><td>No</td></tr>
+        <tr><td><code>make lint</code></td><td>golangci-lint.</td><td>No</td></tr>
+        <tr><td><code>make install</code> / <code>uninstall</code></td><td>Puts the CRD in the cluster / removes it (and every StreamProbe with it).</td><td>Yes</td></tr>
+        <tr><td><code>make run</code></td><td>The controller on your machine, against the cluster.</td><td>Yes</td></tr>
+        <tr><td><code>make deploy</code> / <code>undeploy</code></td><td>The controller inside the cluster, from the image in <code>IMG</code>.</td><td>Yes</td></tr>
+        <tr><td><code>make docker-build</code></td><td>The image, from the Dockerfile.</td><td>No (needs Docker)</td></tr>
+        <tr><td><code>make test-e2e</code></td><td>Creates a kind cluster, runs the end-to-end suite in it, deletes it. Needs kind and Docker installed.</td><td>Makes its own</td></tr>
+        <tr><td><code>make build-installer</code></td><td><code>dist/install.yaml</code>: everything in one file.</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The first time, <code>make</code> downloads its tools into <code>bin/</code> (controller-gen, kustomize, envtest binaries, golangci-lint): a few hundred MB, ignored by git.</p>
+
+  <h2 id="envtest">10. envtest, in plain words</h2>
+  <p>Testing a controller needs an API server to talk to. A whole cluster is slow and heavy. <b>envtest</b> starts only the two programs that make up the API: <code>kube-apiserver</code> and <code>etcd</code> (its database), as plain processes, for the duration of the tests. There are no nodes, so no Pods ever run; but objects can be created, read, validated and watched exactly as in a real cluster.</p>
+  <p>That is why the tests here check the CRD's defaults and validation for real, and run the reconcile loop against a real API, in a few seconds, without Docker. <code>make setup-envtest</code> downloads the binaries; <code>make test</code> does it for you.</p>
+
+  <h2 id="plugins">11. Plugins: the Helm chart</h2>
+  <p>Kubebuilder can add things later through <b>plugins</b>. This repository used one:</p>
+<pre tabindex="0"><code>kubebuilder edit --plugins=helm/v2-alpha</code></pre>
+  <p>It turned the YAML in <code>config/</code> into a Helm chart in <code>dist/chart/</code> and added the <code>helm-*</code> make targets. The chart is a copy: when <code>config/</code> changes (a new field in the CRD, a new permission), run the command again to bring the chart up to date, then check that our own changes to the chart survived (listed in <code>CLAUDE.md</code>: the empty image tag, the chart metadata, the alerts).</p>
+
+  <h2 id="mistakes">12. The usual mistakes, and how they look</h2>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Mistakes and symptoms">
+    <table class="nv-table">
+      <thead><tr><th>Mistake</th><th>What you see</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>New field in Go, CRD not regenerated or not installed</td><td>The field disappears: you apply it, <code>kubectl get -o yaml</code> does not show it. The API server drops fields its schema does not know ("pruning"), without an error.</td><td><code>make manifests</code>, then <code>make install</code>.</td></tr>
+        <tr><td>Missing rbac marker</td><td>The controller logs <code>forbidden: … cannot get resource</code>.</td><td>Add the marker, <code>make manifests</code>, redeploy.</td></tr>
+        <tr><td>Edited a generated file</td><td>Your change vanishes at the next <code>make</code>.</td><td>Change the marker or the Go type instead.</td></tr>
+        <tr><td>Writing the status with <code>Update</code> instead of <code>Status().Update</code></td><td>The status never changes: with the status subresource, a normal update ignores it.</td><td><code>r.Status().Update(ctx, &amp;obj)</code>.</td></tr>
+        <tr><td>Reacting to your own status writes</td><td>The controller reconciles in a tight loop, logs fill up.</td><td>Filter the watch (<code>GenerationChangedPredicate</code>), as <a href="how-it-works.html#own-writes">here</a>.</td></tr>
+        <tr><td>Changed <code>Reconcile</code>, forgot that it can run any time</td><td>Duplicate work after a restart, or nothing after a missed event.</td><td>Decide from what the object says now, not from what woke you up.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="glossary">13. Glossary</h2>
+  <dl>
+    <dt>CRD (CustomResourceDefinition)</dt><dd>The YAML that teaches the API server a new kind of object, with its schema. Here: <code>streamprobes.streaming.allan-nava.github.io</code>.</dd>
+    <dt>CR (custom resource)</dt><dd>One object of that kind: one StreamProbe.</dd>
+    <dt>Controller</dt><dd>A program that watches objects and acts on them. Here: <code>StreamProbeReconciler</code>.</dd>
+    <dt>Reconcile</dt><dd>The function called with the name of an object that may need attention. It reads the object and makes the world match it.</dd>
+    <dt>Manager</dt><dd>The process that hosts the controllers: <code>cmd/main.go</code> creates it. It also serves health checks and metrics, and does leader election.</dd>
+    <dt>Leader election</dt><dd>With two replicas of the operator, only one works at a time; the other waits to take over.</dd>
+    <dt>Scheme</dt><dd>The list of Go types the client knows how to turn into JSON and back. <code>AddToScheme</code> adds StreamProbe to it.</dd>
+    <dt>DeepCopy</dt><dd>Generated functions that copy an object completely, needed because the client caches objects and must not share them.</dd>
+    <dt>kustomize</dt><dd>A tool that assembles YAML from a base plus patches; <code>config/</code> is a kustomize tree. Built into <code>kubectl</code> as <code>kubectl apply -k</code>.</dd>
+    <dt>kind</dt><dd>Kubernetes in Docker: a whole cluster in containers on your laptop, used by the end-to-end tests.</dd>
+    <dt>envtest</dt><dd>An API server and etcd started by the tests, without nodes. See <a href="#envtest">above</a>.</dd>
+    <dt>Marker</dt><dd>A <code>// +…</code> comment read by controller-gen. See <a href="#markers">above</a>.</dd>
+    <dt>Status subresource</dt><dd>The status written through its own endpoint, so users and the controller do not overwrite each other, and a status write does not count as a spec change.</dd>
+    <dt>Generation / observedGeneration</dt><dd>A counter the API server increases on every spec change; the controller writes the one it last handled into the status.</dd>
+  </dl>
+
+  <div class="next">
+    <a href="how-it-works.html">← How it works</a>
+    <a href="reference.html">Reference →</a>
+  </div>
+</main>
+
+</main>
+
+<div class="nv-wrap nv-wrap--large">
+<footer class="nv-footer">
+  <div class="nv-footer__cols">
+    <div>
+      <p class="nv-footer__name">streamprobe-operator</p>
+      <p class="nv-footer__text">A Kubernetes operator that watches live HLS streams. A learning project, open source under the MIT licence.</p>
+    </div>
+    <div>
+      <h2 class="nv-footer__title">Documentation</h2>
+      <ul class="nv-footer__list">
+        <li><a class="nv-footer__link" href="./">Overview</a></li>
+        <li><a class="nv-footer__link" href="how-it-works.html">How it works</a></li>
+        <li><a class="nv-footer__link" href="kubebuilder.html">Kubebuilder from zero</a></li>
+        <li><a class="nv-footer__link" href="reference.html">Reference</a></li>
+        <li><a class="nv-footer__link" href="raspberry-pi.html">On a Raspberry Pi</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="nv-footer__title">Project</h2>
+      <ul class="nv-footer__list">
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator">GitHub</a></li>
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator/blob/main/BACKLOG.md">Backlog</a></li>
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator/issues">Issues</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="nv-footer__bottom"><p>© 2026 <a href="https://allan-nava.github.io/">Allan Nava</a> · MIT</p><p>Styled with <a href="https://allan-nava.github.io/nava-ui/">nava-ui</a></p></div>
+</footer>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@v0.10.0/dist/nava-ui.min.js"></script>
+</body>
+</html>

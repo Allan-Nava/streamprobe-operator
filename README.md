@@ -6,7 +6,9 @@ Prometheus metrics, whether it is live: the playlist answers, its live edge move
 origin serves the newest segment.
 
 **Documentation: <https://allan-nava.github.io/streamprobe-operator/>**, with a guide to how the
-operator works, one Kubernetes idea at a time, and how each maps to Nomad.
+operator works, one Kubernetes idea at a time, and how each maps to Nomad, and
+[Kubebuilder from zero](https://allan-nava.github.io/streamprobe-operator/kubebuilder.html): what
+kubebuilder generated here, which files are yours and which are generated, and the everyday loop.
 
 [![Tests](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/test.yml/badge.svg)](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/test.yml)
 [![Lint](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/lint.yml/badge.svg)](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/lint.yml)
