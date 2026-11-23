@@ -164,9 +164,14 @@ internal/probe/                 one check over HTTP
 internal/controller/            the reconcile loop, the evaluate rules, the metrics
 config/                         kustomize: CRD, RBAC, manager, samples (CRD and RBAC generated)
 dist/chart/                     the Helm chart, generated from config/ by kubebuilder's helm plugin
+deploy/argocd/, deploy/probes/  Argo CD Applications for a k3s cluster, and the streams it watches
 test/e2e/                       the kind suite; testdata/fake-hls.yaml is a fake live origin
 docs/                           the GitHub Pages site (plain HTML, nava-ui from the CDN)
 ```
+
+On a Raspberry Pi, with k3s and Argo CD syncing the operator and a list of streams from this
+repository (`deploy/argocd/`, `deploy/probes/`): see the
+[guide](https://allan-nava.github.io/streamprobe-operator/raspberry-pi.html).
 
 Planned work is in [BACKLOG.md](BACKLOG.md) (the roadmap view is [ROADMAP.md](ROADMAP.md)): running on k3s with ArgoCD, alerts and
 a dashboard, then probes of every variant, DASH, and probe Pods for heavier checks.

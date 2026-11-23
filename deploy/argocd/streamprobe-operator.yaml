@@ -1,0 +1,33 @@
+# Argo CD: the operator, from the Helm chart in this repository (dist/chart), on the main
+# branch. Argo CD keeps the cluster equal to the chart: a merged change is rolled out, a
+# hand edit in the cluster is reverted (selfHeal). On a Raspberry Pi the image is the arm64 one.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: streamprobe-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Allan-Nava/streamprobe-operator
+    targetRevision: main
+    path: dist/chart
+    helm:
+      releaseName: streamprobe-operator
+      valuesObject:
+        manager:
+          # Small: a Pi shares its memory with everything else on it.
+          resources:
+            requests: {cpu: 10m, memory: 48Mi}
+            limits: {cpu: 250m, memory: 96Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: streamprobe-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The CRD is large; server-side apply avoids the annotation size limit of client-side apply.
+      - ServerSideApply=true

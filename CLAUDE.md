@@ -36,6 +36,9 @@ test/e2e/                            kind end-to-end suite (make test-e2e); test
                                      the fake live origin it probes (Live, then Stale after GET /stop)
 docs/                                the GitHub Pages site: index (overview), how-it-works (the guide),
                                      reference; plain HTML with nava-ui from the CDN; pages.yml deploys it
+deploy/argocd/                       Argo CD Applications: the operator from dist/chart, the streams
+                                     from deploy/probes/ (one StreamProbe per file, listed in its
+                                     kustomization); the Raspberry Pi guide is docs/raspberry-pi.html
 BACKLOG.md                           planned work, source of truth; ROADMAP.md generated from it
 ```
 

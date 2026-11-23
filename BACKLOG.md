@@ -57,7 +57,10 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   image tag makes it install the image of that version. <!-- sp: prio=med size=M labels=deploy ver=main -->
 - [ ] **SP-9 — Running on the Raspberry Pi**: k3s on the Pi 4, the operator installed by
   ArgoCD from this repository, a few public live streams probed around the clock; the steps in
-  `docs/`. <!-- sp: prio=med size=M labels=deploy,docs -->
+  `docs/`. Ready in the repository, not yet run on the Pi: `deploy/argocd/` (the operator from
+  `dist/chart`, the streams from `deploy/probes/`), three test streams, and the guide
+  `docs/raspberry-pi.html` (k3s without Traefik next to Docker, Argo CD core, metrics). Done
+  when the probes are Live on the Pi. <!-- sp: prio=med size=M labels=deploy,docs -->
 
 ## v0.3.0 — Seen from Grafana <!-- ms: phase=later -->
 

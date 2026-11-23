@@ -1,0 +1,8 @@
+# Unified Streaming's live demo: 2-second segments. Expected: Live.
+apiVersion: streaming.allan-nava.github.io/v1alpha1
+kind: StreamProbe
+metadata:
+  name: unified-live
+spec:
+  url: https://demo.unified-streaming.com/k8s/live/stable/live.isml/.m3u8
+  interval: 60s

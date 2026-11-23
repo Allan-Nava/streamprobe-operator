@@ -1,0 +1,29 @@
+# Argo CD: the streams to watch, from deploy/probes. Adding a stream is a commit to that
+# folder; Argo CD creates the StreamProbe, and deletes it when the file goes (prune).
+# It waits for the operator's Application: a StreamProbe needs the CRD.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: streamprobes
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Allan-Nava/streamprobe-operator
+    targetRevision: main
+    path: deploy/probes
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: streams
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    # The CRD may not exist yet on the very first sync: retry until the operator is in.
+    retry:
+      limit: 10
+      backoff: {duration: 15s, factor: 2, maxDuration: 5m}

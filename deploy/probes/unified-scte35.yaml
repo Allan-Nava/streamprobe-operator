@@ -1,0 +1,8 @@
+# Unified Streaming's live demo with SCTE-35 ad markers: 3-second segments. Expected: Live.
+apiVersion: streaming.allan-nava.github.io/v1alpha1
+kind: StreamProbe
+metadata:
+  name: unified-scte35
+spec:
+  url: https://demo.unified-streaming.com/k8s/live/scte35.isml/.m3u8
+  interval: 60s
