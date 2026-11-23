@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+# The image published by .github/workflows/image.yml (:main from main, :X.Y.Z from a tag).
+IMG ?= ghcr.io/allan-nava/streamprobe-operator:main
 # YEAR defines the year value used for substituting the YEAR placeholder in the boilerplate header.
 YEAR ?= $(shell date +%Y)
 

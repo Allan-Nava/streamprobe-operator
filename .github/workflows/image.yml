@@ -1,0 +1,93 @@
+# The operator's image on GHCR, for linux/amd64 and linux/arm64 (a Raspberry Pi, an Ampere VM).
+#
+#   push to main   ghcr.io/allan-nava/streamprobe-operator:main and :sha-<commit>
+#   tag vX.Y.Z     :X.Y.Z, :X.Y and :latest, plus a GitHub release with dist/install.yaml
+#                  (the CRD, RBAC and Deployment, pinned to that image: kubectl apply -f it)
+#
+# The registry path is lowercase: GHCR refuses "Allan-Nava".
+name: Image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['docs/**', '**.md', 'BACKLOG.md', 'ROADMAP.md']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/allan-nava/streamprobe-operator
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=streamprobe-operator
+            org.opencontainers.image.description=A Kubernetes operator that watches live HLS streams
+            org.opencontainers.image.licenses=MIT
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The image runs on both platforms
+        run: |
+          for p in linux/amd64 linux/arm64; do
+            docker buildx imagetools inspect "$IMAGE:sha-${GITHUB_SHA}" --format "{{json .Manifest}}" | grep -q "${p#linux/}" \
+              || { echo "::error::no $p in the manifest"; exit 1; }
+          done
+          echo "$IMAGE:sha-${GITHUB_SHA} has linux/amd64 and linux/arm64"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: The install manifest, pinned to this release's image
+        run: make build-installer IMG="$IMAGE:${{ needs.image.outputs.version }}"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/install.yaml --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

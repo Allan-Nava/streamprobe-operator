@@ -36,3 +36,18 @@ pre.term { font-size: var(--nv-text-xs); line-height: 1.55; }
 .toc ol { margin: var(--nv-space-2) 0 0; padding-left: 1.2em; }
 
 .next { display: flex; justify-content: space-between; gap: var(--nv-space-4); flex-wrap: wrap; margin-top: var(--nv-space-8); }
+
+/* A long path or identifier inside a sentence wraps instead of widening the page on a phone. */
+main p code, main li code { overflow-wrap: anywhere; }
+
+/* In a table a field name stays whole: the table scrolls in its box instead (nv-table-wrap). */
+.nv-table td code { white-space: nowrap; }
+
+/* A paragraph right after a table keeps its distance. */
+.nv-table-wrap + p { margin-top: var(--nv-space-4); }
+
+/* On a phone a table keeps a readable width and scrolls sideways in its box, rather than
+   squeezing its last column to a word per line. */
+@media (max-width: 640px) {
+  .nv-table { min-width: 34rem; }
+}

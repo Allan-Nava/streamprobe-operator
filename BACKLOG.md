@@ -41,8 +41,11 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
 - [ ] **SP-6 — End-to-end on kind**: the kubebuilder e2e suite green in CI on a kind cluster,
   plus a test that applies a StreamProbe against a stream served inside the cluster and waits
   for Ready=True, then stops the stream and waits for Stale. <!-- sp: prio=high size=M labels=ci -->
-- [ ] **SP-7 — Image and releases**: multi-arch image (amd64, arm64) on GHCR from a tag, the
-  CRD and the install manifest (`make build-installer`) attached to the GitHub release. <!-- sp: prio=high size=M labels=deploy,ci -->
+- [x] **SP-7 — Image and releases**: multi-arch image (amd64, arm64) on GHCR from a tag, the
+  CRD and the install manifest (`make build-installer`) attached to the GitHub release. Done in
+  `image.yml`: `:main` and `:sha-<commit>` on every push to main, `:X.Y.Z`, `:X.Y`, `:latest` and
+  a release with `install.yaml` on a tag; the builder cross-compiles instead of running under
+  QEMU. <!-- sp: prio=high size=M labels=deploy,ci ver=main -->
 - [ ] **SP-8 — Helm chart**: a chart for the operator (CRD, RBAC, Deployment, metrics Service),
   linted and installed on kind in CI, published as an OCI artifact on GHCR. <!-- sp: prio=med size=M labels=deploy -->
 - [ ] **SP-9 — Running on the Raspberry Pi**: k3s on the Pi 4, the operator installed by

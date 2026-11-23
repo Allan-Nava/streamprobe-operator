@@ -4,14 +4,14 @@
 
 > This page is **generated** from [BACKLOG.md](BACKLOG.md), the single source of truth for planned work. Regenerate it with `npx backlogsync roadmap` after editing the backlog — CI fails when the two disagree.
 
-**17 items · 5 shipped · 12 open · 5 milestones.**
+**17 items · 6 shipped · 11 open · 5 milestones.**
 
 ## At a glance
 
 | Milestone | Phase | Progress | Open | Shipped |
 |---|---|---|---|---|
 | **v0.1.0 — A probe that reconciles** | now | `##########` 100% | 0 | 5 |
-| **v0.2.0 — On a real cluster** | next | `..........` 0% | 4 | 0 |
+| **v0.2.0 — On a real cluster** | next | `###.......` 25% | 3 | 1 |
 | **v0.3.0 — Seen from Grafana** | later | `..........` 0% | 2 | 0 |
 | **v0.4.0 — Probes that know more** | later | `..........` 0% | 4 | 0 |
 | **v0.5.0 — Probes as workloads** | later | `..........` 0% | 2 | 0 |
@@ -27,7 +27,7 @@
 ## v0.2.0 — On a real cluster
 
 - [ ] **SP-6** — End-to-end on kind · high · M · ci
-- [ ] **SP-7** — Image and releases · high · M · deploy, ci
+- [x] **SP-7** — Image and releases · high · M · deploy, ci · `main`
 - [ ] **SP-8** — Helm chart · med · M · deploy
 - [ ] **SP-9** — Running on the Raspberry Pi · med · M · deploy, docs
 

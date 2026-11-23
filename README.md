@@ -117,12 +117,22 @@ kubectl apply -k config/samples
 kubectl get sp -w
 ```
 
-In the cluster, with an image you built and pushed:
+In the cluster, with the published image (`ghcr.io/allan-nava/streamprobe-operator`, for
+linux/amd64 and linux/arm64: `:main` follows the main branch, `:X.Y.Z` and `:latest` the
+releases):
 
 ```sh
-make docker-build docker-push IMG=<registry>/streamprobe-operator:<tag>
-make deploy IMG=<registry>/streamprobe-operator:<tag>
+make deploy                  # IMG defaults to ghcr.io/allan-nava/streamprobe-operator:main
 ```
+
+A release also attaches `install.yaml` (CRD, RBAC and Deployment, pinned to that release's
+image), so a cluster needs no clone:
+
+```sh
+kubectl apply -f https://github.com/Allan-Nava/streamprobe-operator/releases/latest/download/install.yaml
+```
+
+With your own build: `make docker-build docker-push deploy IMG=<registry>/streamprobe-operator:<tag>`.
 
 `make undeploy` and `make uninstall` remove it.
 
@@ -149,7 +159,7 @@ docs/                           the GitHub Pages site (plain HTML, nava-ui from 
 ```
 
 Planned work is in [BACKLOG.md](BACKLOG.md) (the roadmap view is [ROADMAP.md](ROADMAP.md)):
-the image and a Helm chart, an end-to-end test on kind, running on k3s with ArgoCD, alerts and
+a Helm chart, an end-to-end test against a stream served in the cluster, running on k3s with ArgoCD, alerts and
 a dashboard, then probes of every variant, DASH, and probe Pods for heavier checks.
 
 ## License

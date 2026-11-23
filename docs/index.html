@@ -72,10 +72,10 @@
   <section aria-labelledby="look">
     <h2 id="look">At a glance</h2>
 <pre class="term" tabindex="0"><code><span class="dim">$</span> kubectl get streamprobes
-NAME                READY   REASON   EDGE        ADVANCED   AGE
-unified-live-demo   <span class="ok">True</span>    <span class="ok">Live</span>     935119251   2s         3h
-channel-2           <span class="bad">False</span>   <span class="bad">Stale</span>    918233      6m         3h
-origin-eu           <span class="bad">False</span>   <span class="bad">SegmentFailed</span>  4410291  1s  3h</code></pre>
+NAME                READY   REASON          EDGE        ADVANCED   AGE
+unified-live-demo   <span class="ok">True</span>    <span class="ok">Live</span>            935119251   2s         3h
+channel-2           <span class="bad">False</span>   <span class="bad">Stale</span>           918233      6m         3h
+origin-eu           <span class="bad">False</span>   <span class="bad">SegmentFailed</span>   4410291     1s         3h</code></pre>
   </section>
 
   <section aria-labelledby="why">
@@ -133,7 +133,7 @@ spec:
   interval: 30s
 EOF
 kubectl get sp -w</code></pre>
-    <p>Then <code>kubectl describe sp unified-live-demo</code> shows the status and the events. To run it in the cluster instead, build and push the image and <code>make deploy IMG=…</code>; the <a href="reference.html#install">reference</a> has the details. A published image and a Helm chart are planned (<a href="https://github.com/Allan-Nava/streamprobe-operator/milestone/1">v0.2.0</a>).</p>
+    <p>Then <code>kubectl describe sp unified-live-demo</code> shows the status and the events. To run it in the cluster instead, <code>make deploy</code> installs the published image, <code>ghcr.io/allan-nava/streamprobe-operator</code> (linux/amd64 and linux/arm64); the <a href="reference.html#install">reference</a> has the details. A Helm chart is planned (<a href="https://github.com/Allan-Nava/streamprobe-operator/milestone/1">v0.2.0</a>).</p>
   </section>
 
   <section aria-labelledby="learn">
@@ -143,12 +143,33 @@ kubectl get sp -w</code></pre>
 
 </main>
 
-<footer class="nv-wrap nv-wrap--large nv-footer">
-  <div class="nv-footer__bottom">
-    <p>streamprobe-operator · MIT · by <a href="https://allan-nava.github.io/">Allan Nava</a></p>
-    <p>Styled with <a href="https://allan-nava.github.io/nava-ui/">nava-ui</a></p>
+<div class="nv-wrap nv-wrap--large">
+<footer class="nv-footer">
+  <div class="nv-footer__cols">
+    <div>
+      <p class="nv-footer__name">streamprobe-operator</p>
+      <p class="nv-footer__text">A Kubernetes operator that watches live HLS streams. A learning project, open source under the MIT licence.</p>
+    </div>
+    <div>
+      <h2 class="nv-footer__title">Documentation</h2>
+      <ul class="nv-footer__list">
+        <li><a class="nv-footer__link" href="./">Overview</a></li>
+        <li><a class="nv-footer__link" href="how-it-works.html">How it works</a></li>
+        <li><a class="nv-footer__link" href="reference.html">Reference</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="nv-footer__title">Project</h2>
+      <ul class="nv-footer__list">
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator">GitHub</a></li>
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator/blob/main/BACKLOG.md">Backlog</a></li>
+        <li><a class="nv-footer__link" href="https://github.com/Allan-Nava/streamprobe-operator/issues">Issues</a></li>
+      </ul>
+    </div>
   </div>
+  <div class="nv-footer__bottom"><p>© 2026 <a href="https://allan-nava.github.io/">Allan Nava</a> · MIT</p><p>Styled with <a href="https://allan-nava.github.io/nava-ui/">nava-ui</a></p></div>
 </footer>
+</div>
 
 <script defer src="https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@v0.10.0/dist/nava-ui.min.js"></script>
 </body>

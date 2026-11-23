@@ -67,6 +67,7 @@ make lint                   # golangci-lint
 make manifests generate     # CRD, RBAC, DeepCopy from the markers
 make install run            # CRD into the current cluster, controller on this machine
 make test-e2e               # on kind (needs Docker)
+make deploy                 # into the current cluster, image ghcr.io/allan-nava/streamprobe-operator:main
 npx backlogsync check       # BACKLOG.md valid, ROADMAP.md current
 npx backlogsync roadmap     # regenerate ROADMAP.md
 ```
