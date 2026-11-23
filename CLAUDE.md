@@ -61,6 +61,10 @@ BACKLOG.md                           planned work, source of truth; ROADMAP.md g
 - **Keep the docs true.** A changed fact is changed everywhere it is stated: README, this file,
   BACKLOG.md, and the pages in `docs/` (a new spec or status field, reason or metric goes in
   `docs/reference.html`; a change to the reconcile loop in `docs/how-it-works.html`).
+- **Alerts live in `dist/chart/files/streamprobe.rules.yaml`**, a plain rules file (no Helm
+  templating, so promtool can read it); a changed alert changes `test/prometheus/rules_test.yaml`,
+  the README and `docs/reference.html` too. A chart regeneration must keep `files/`, the
+  `prometheus/streamprobe-rules.yaml` template and `prometheus.rules` in values.
 - **The chart follows `config/`.** After a change to the CRD, RBAC or manager manifests, run
   `kubebuilder edit --plugins=helm/v2-alpha` again, restore our `Chart.yaml` fields and the
   empty `manager.image.tag` (a released chart must install the image of its own version), and

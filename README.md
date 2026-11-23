@@ -91,6 +91,16 @@ On the manager's metrics endpoint, labelled by `namespace` and `name`:
 
 The series of a deleted probe are dropped.
 
+With the Prometheus Operator in the cluster, `--set prometheus.enabled=true` on the chart adds a
+ServiceMonitor and a PrometheusRule with three alerts (rules in
+`dist/chart/files/streamprobe.rules.yaml`, unit-tested with `promtool test rules`):
+
+| Alert | When |
+|---|---|
+| `StreamNotLive` | a stream not Ready for 5 minutes |
+| `StreamPlaylistSlow` | 95% of a stream's playlist fetches over 1 s, for 10 minutes |
+| `StreamprobeDown` | Prometheus cannot scrape the operator for 5 minutes |
+
 ## Design notes
 
 - **Periodic work in a level-based controller.** A reconcile checks the stream only when the

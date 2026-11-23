@@ -185,9 +185,14 @@ webhook:
 ## Requires prometheus-operator to be installed in the cluster.
 ##
 prometheus:
+  # The ServiceMonitor and, with rules.enabled, the PrometheusRule with the alerts
+  # (files/streamprobe.rules.yaml). Needs the Prometheus Operator's CRDs in the cluster.
   enabled: false
+  rules:
+    enabled: true
 
-  ## Custom ServiceMonitor labels
+  ## Custom labels on the ServiceMonitor and the PrometheusRule: often the one your Prometheus
+  ## selects on, e.g. release: kube-prometheus-stack
   ##
   # labels: {}
 

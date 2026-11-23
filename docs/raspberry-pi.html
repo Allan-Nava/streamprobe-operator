@@ -127,7 +127,7 @@ unified-scte35   True    Live          935133090   38s        2m</code></pre>
 TOKEN=$(kubectl create token streamprobe-operator-controller-manager -n streamprobe-system)
 kubectl -n streamprobe-system port-forward svc/streamprobe-operator-controller-manager-metrics-service 8443 &amp;
 curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8443/metrics | grep ^streamprobe_</code></pre>
-  <p>A Prometheus in the cluster would read the same endpoint through a ServiceMonitor; that is the next milestone.</p>
+  <p>A Prometheus in the cluster reads the same endpoint through the chart's ServiceMonitor, with three alerts: set <code>prometheus.enabled: true</code> in the operator's Application (see the <a href="reference.html#alerts">reference</a>).</p>
 
   <h2 id="stream">8. Watch your own stream</h2>
   <p>Add a file to <code>deploy/probes/</code> and list it in <code>deploy/probes/kustomization.yaml</code>:</p>

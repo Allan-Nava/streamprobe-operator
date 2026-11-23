@@ -130,8 +130,19 @@ kubectl get sp -o custom-columns=NAME:.metadata.name,REASON:.status.conditions[0
         </tbody>
       </table>
     </div>
-    <p>An alert on a stream down for five minutes, for instance:</p>
-<pre tabindex="0"><code>min_over_time(streamprobe_ready[5m]) == 0</code></pre>
+    <h3 id="alerts">Alerts</h3>
+    <p>With the Prometheus Operator in the cluster, <code>--set prometheus.enabled=true</code> on the chart adds a ServiceMonitor and a PrometheusRule. The rules live in <code>dist/chart/files/streamprobe.rules.yaml</code> and have unit tests (<code>promtool test rules test/prometheus/rules_test.yaml</code>).</p>
+    <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Alerts">
+      <table class="nv-table">
+        <thead><tr><th>Alert</th><th>Expression</th><th>For</th></tr></thead>
+        <tbody>
+          <tr><td><code>StreamNotLive</code></td><td><code>streamprobe_ready == 0</code></td><td>5m</td></tr>
+          <tr><td><code>StreamPlaylistSlow</code></td><td>p95 of <code>streamprobe_playlist_fetch_seconds</code> over 10m &gt; 1s</td><td>10m</td></tr>
+          <tr><td><code>StreamprobeDown</code></td><td><code>up</code> of the operator's metrics service == 0</td><td>5m</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>If your Prometheus selects rules by a label (with kube-prometheus-stack, <code>release</code>), set it with <code>prometheus.labels</code>.</p>
   </section>
 
   <section aria-labelledby="rbac">

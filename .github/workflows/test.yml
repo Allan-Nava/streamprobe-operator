@@ -27,3 +27,21 @@ jobs:
         run: |
           go mod tidy
           make test
+
+  # The alerts: promtool checks the rules file and runs its unit tests (SP-10).
+  alerts:
+    permissions:
+      contents: read
+    name: Alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: promtool check and test
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.5.0 \
+            check rules dist/chart/files/streamprobe.rules.yaml
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.5.0 \
+            test rules test/prometheus/rules_test.yaml

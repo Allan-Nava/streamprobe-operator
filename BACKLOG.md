@@ -64,8 +64,13 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
 
 ## v0.3.0 — Seen from Grafana <!-- ms: phase=later -->
 
-- [ ] **SP-10 — ServiceMonitor and alerts**: a ServiceMonitor for the Prometheus Operator and a
-  PrometheusRule: a stream not Ready for N minutes, a playlist slower than its target duration. <!-- sp: prio=med size=S labels=observability -->
+- [x] **SP-10 — ServiceMonitor and alerts**: a ServiceMonitor for the Prometheus Operator and a
+  PrometheusRule: a stream not Ready for N minutes, a playlist slower than its target duration.
+  Done: the chart's ServiceMonitor (kubebuilder's) plus a PrometheusRule from
+  `dist/chart/files/streamprobe.rules.yaml`: StreamNotLive (5m), StreamPlaylistSlow (p95 over
+  1 s for 10m; a fixed second, since the target duration is not a metric), StreamprobeDown.
+  `promtool test rules` in CI, and the chart installed with them on kind against the Prometheus
+  Operator's CRDs. <!-- sp: prio=med size=S labels=observability ver=main -->
 - [ ] **SP-11 — Dashboard**: a Grafana dashboard as JSON in the repository (and the chart):
   live/not live per stream, the live edge over time, playlist latency percentiles. <!-- sp: prio=low size=S labels=observability -->
 

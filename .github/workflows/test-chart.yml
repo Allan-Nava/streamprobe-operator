@@ -94,3 +94,13 @@ jobs:
           EOF
           kubectl wait streamprobe/fake-live --for=jsonpath='{.status.conditions[?(@.type=="Ready")].reason}'=Live --timeout=2m
           kubectl get streamprobe fake-live
+
+      # With the Prometheus Operator's CRDs, the chart's ServiceMonitor and PrometheusRule
+      # (SP-10) must be accepted by the API server, not only rendered.
+      - name: ServiceMonitor and alerts
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm install prometheus-crds prometheus-community/prometheus-operator-crds --wait
+          make helm-deploy HELM_EXTRA_ARGS="--set prometheus.enabled=true"
+          kubectl get servicemonitor,prometheusrule -n streamprobe-operator-system
+          kubectl get prometheusrule -n streamprobe-operator-system -o jsonpath='{.items[0].spec.groups[0].rules[*].alert}' | tee /dev/stderr | grep -q StreamNotLive

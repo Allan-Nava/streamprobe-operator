@@ -1,0 +1,43 @@
+# The alerts of streamprobe-operator (SP-10). A plain Prometheus rules file: the chart wraps it
+# in a PrometheusRule (templates/prometheus/streamprobe-rules.yaml) and test/prometheus/ tests it
+# with `promtool test rules`, so the rules have one source. Thresholds are here, not in values:
+# a templated file could not be tested by promtool.
+groups:
+  - name: streamprobe
+    rules:
+      - alert: StreamNotLive
+        expr: streamprobe_ready == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stream {{ $labels.namespace }}/{{ $labels.name }} is not live"
+          description: >-
+            The StreamProbe has not been Ready for 5 minutes: the playlist fails, stopped
+            moving, ended, or its live-edge segment does not answer.
+            `kubectl describe streamprobe -n {{ $labels.namespace }} {{ $labels.name }}` gives the reason.
+
+      - alert: StreamPlaylistSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (namespace, name, le) (rate(streamprobe_playlist_fetch_seconds_bucket[10m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stream {{ $labels.namespace }}/{{ $labels.name }}: slow playlist"
+          description: >-
+            95% of the playlist fetches took up to {{ $value | humanizeDuration }} over 10 minutes.
+            A player that waits this long for a playlist falls behind the live edge.
+
+      - alert: StreamprobeDown
+        expr: up{service=~".*streamprobe.*metrics-service"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "streamprobe-operator is not scraped"
+          description: >-
+            Prometheus has not read the operator's metrics for 5 minutes: no stream is being
+            watched, and StreamNotLive cannot fire.

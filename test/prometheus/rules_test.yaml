@@ -1,0 +1,84 @@
+# Unit tests of the alerts in dist/chart/files/streamprobe.rules.yaml (SP-10):
+#   promtool test rules test/prometheus/rules_test.yaml
+# Each series is a short history; each alert is checked where it must fire and where it must not.
+rule_files:
+  - ../../dist/chart/files/streamprobe.rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Not Ready for 3 minutes, then for 6: StreamNotLive waits its 5 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'streamprobe_ready{namespace="streams", name="channel-1"}'
+        values: '1 1 0 0 0 0 0 0 0 0'
+      - series: 'streamprobe_ready{namespace="streams", name="channel-2"}'
+        values: '1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: StreamNotLive
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: StreamNotLive
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: streams
+              name: channel-1
+            exp_annotations:
+              summary: "Stream streams/channel-1 is not live"
+              description: >-
+                The StreamProbe has not been Ready for 5 minutes: the playlist fails, stopped
+                moving, ended, or its live-edge segment does not answer.
+                `kubectl describe streamprobe -n streams channel-1` gives the reason.
+
+  # A playlist that takes 2.5 s every time, against one that takes 0.1 s: only the slow one
+  # fires, and only once it has been slow for 10 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="slow", le="1"}'
+        values: '0+0x30'
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="slow", le="2.5"}'
+        values: '0+1x30'
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="slow", le="+Inf"}'
+        values: '0+1x30'
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="fast", le="0.1"}'
+        values: '0+1x30'
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="fast", le="1"}'
+        values: '0+1x30'
+      - series: 'streamprobe_playlist_fetch_seconds_bucket{namespace="streams", name="fast", le="+Inf"}'
+        values: '0+1x30'
+    alert_rule_test:
+      # The rate has a value from the first minute, so the alert is pending from then and fires
+      # after its 10 minutes: not yet at 5, firing at 25.
+      - eval_time: 5m
+        alertname: StreamPlaylistSlow
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: StreamPlaylistSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: streams
+              name: slow
+
+  # The operator's scrape target goes down: StreamprobeDown after 5 minutes. Another job's
+  # target being down does not count.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="streamprobe-operator-controller-manager-metrics-service", service="streamprobe-operator-controller-manager-metrics-service", namespace="streamprobe-system"}'
+        values: '1 1 0 0 0 0 0 0 0 0'
+      - series: 'up{job="node", service="node-exporter"}'
+        values: '0 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: StreamprobeDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: StreamprobeDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: streamprobe-operator-controller-manager-metrics-service
+              service: streamprobe-operator-controller-manager-metrics-service
+              namespace: streamprobe-system
