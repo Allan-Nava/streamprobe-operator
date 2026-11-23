@@ -1,0 +1,38 @@
+/* The documentation pages of streamprobe-operator. The look is nava-ui's (loaded from the CDN
+   before this file); here only the few page-level pieces the kit does not have. Tokens only. */
+
+main { padding-bottom: var(--nv-space-8); }
+main > section { margin-top: var(--nv-space-8); }
+main > section:first-of-type { margin-top: 0; }
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--nv-space-6);
+  align-items: center;
+}
+.hero img { width: 148px; height: 148px; }
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero img { display: none; }
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: var(--nv-space-3); margin-top: var(--nv-space-5); }
+
+/* A terminal or a diagram: the kit's <pre>, a little tighter. */
+pre.term { font-size: var(--nv-text-xs); line-height: 1.55; }
+.term .ok { color: var(--nv-accent-text); }
+.term .bad { color: var(--nv-danger, #f87171); }
+.term .dim { color: var(--nv-fg-muted); }
+
+.lead { font-size: var(--nv-text-lg); color: var(--nv-fg-muted); max-width: 70ch; }
+
+/* The prose of the guide pages keeps a reading width. */
+.prose { max-width: 75ch; }
+.prose h2 { margin-top: var(--nv-space-8); }
+.prose h3 { margin-top: var(--nv-space-6); }
+
+.toc { font-size: var(--nv-text-sm); color: var(--nv-fg-muted); }
+.toc ol { margin: var(--nv-space-2) 0 0; padding-left: 1.2em; }
+
+.next { display: flex; justify-content: space-between; gap: var(--nv-space-4); flex-wrap: wrap; margin-top: var(--nv-space-8); }

@@ -5,6 +5,9 @@ the operator checks it on an interval and tells you, in the resource's status, i
 Prometheus metrics, whether it is live: the playlist answers, its live edge moves, and the
 origin serves the newest segment.
 
+**Documentation: <https://allan-nava.github.io/streamprobe-operator/>**, with a guide to how the
+operator works, one Kubernetes idea at a time, and how each maps to Nomad.
+
 [![Tests](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/test.yml/badge.svg)](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/test.yml)
 [![Lint](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/lint.yml/badge.svg)](https://github.com/Allan-Nava/streamprobe-operator/actions/workflows/lint.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](LICENSE)
@@ -142,6 +145,7 @@ internal/probe/                 one check over HTTP
 internal/controller/            the reconcile loop, the evaluate rules, the metrics
 config/                         kustomize: CRD, RBAC, manager, samples (CRD and RBAC generated)
 test/e2e/                       the kind suite
+docs/                           the GitHub Pages site (plain HTML, nava-ui from the CDN)
 ```
 
 Planned work is in [BACKLOG.md](BACKLOG.md) (the roadmap view is [ROADMAP.md](ROADMAP.md)):

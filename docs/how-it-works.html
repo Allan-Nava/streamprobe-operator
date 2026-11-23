@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works — streamprobe-operator</title>
+<meta name="description" content="How a Kubernetes operator is built, through streamprobe-operator: the custom resource, the reconcile loop, periodic work with RequeueAfter, conditions and events, metrics, RBAC from markers, testing with envtest, and how each idea maps to Nomad.">
+<meta name="author" content="Allan Nava">
+<link rel="canonical" href="https://allan-nava.github.io/streamprobe-operator/how-it-works.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="streamprobe-operator">
+<meta property="og:title" content="How a Kubernetes operator works — streamprobe-operator">
+<meta property="og:description" content="The custom resource, the reconcile loop, periodic work, conditions, events, metrics, RBAC and envtest, explained on a real operator, with a map from Nomad.">
+<meta property="og:url" content="https://allan-nava.github.io/streamprobe-operator/how-it-works.html">
+<meta property="og:image" content="https://allan-nava.github.io/streamprobe-operator/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('nv-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@v0.10.0/dist/nava-ui.min.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="nv-skip-link" href="#main">Skip to content</a>
+
+<header class="nv-nav">
+  <div class="nv-nav__inner">
+    <a class="nv-nav__brand" href="./">
+      <img class="nv-nav__avatar" src="assets/logo.svg" alt="" width="30" height="30">
+      <span class="nv-nav__name">streamprobe</span>
+    </a>
+    <ul class="nv-nav__links">
+      <li><a class="nv-nav__link" href="./">Overview</a></li>
+      <li><a class="nv-nav__link" href="how-it-works.html" aria-current="page">How it works</a></li>
+      <li><a class="nv-nav__link" href="reference.html">Reference</a></li>
+      <li><a class="nv-nav__link" href="https://github.com/Allan-Nava/streamprobe-operator">GitHub</a></li>
+    </ul>
+    <button class="nv-nav__icon" type="button" data-nv-theme-toggle>
+      <svg class="nv-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="nv-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="nv-wrap nv-wrap--large prose" id="main" data-nv-copy>
+
+  <div class="nv-lede">
+    <p class="nv-lede__kicker">Guide</p>
+    <h1 class="nv-lede__title">How it works</h1>
+    <p class="nv-lede__sub">A Kubernetes operator, one piece at a time, each tied to the file in the repository that does it. Written for someone who knows how to run services, and wants to know what happens inside the control plane.</p>
+  </div>
+
+  <nav class="toc" aria-label="On this page">
+    <b>On this page</b>
+    <ol>
+      <li><a href="#operator">What an operator is</a></li>
+      <li><a href="#resource">The custom resource</a></li>
+      <li><a href="#reconcile">The reconcile loop</a></li>
+      <li><a href="#periodic">Periodic work in a level-based loop</a></li>
+      <li><a href="#own-writes">Not waking up on its own writes</a></li>
+      <li><a href="#check">The check and the verdict</a></li>
+      <li><a href="#report">Conditions, events and metrics</a></li>
+      <li><a href="#rbac">Permissions from markers</a></li>
+      <li><a href="#tests">Testing without a cluster, then with one</a></li>
+      <li><a href="#nomad">If you know Nomad</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="operator">1. What an operator is</h2>
+  <p>Kubernetes is a database of objects (Deployments, Services, Pods) plus controllers that keep reality in line with them. You write the desired state; a controller watches the objects and acts until the world matches. A Deployment controller creates ReplicaSets, a ReplicaSet controller creates Pods, the kubelet runs containers.</p>
+  <p>An <b>operator</b> is the same pattern for your own domain: a new kind of object (a <b>custom resource</b>, defined by a CustomResourceDefinition) and a controller that knows what it means. Here the object is a <code>StreamProbe</code>, and what it means is "keep watching this stream and tell me how it is".</p>
+  <p>That makes streamprobe an <b>observing</b> operator: it creates nothing in the cluster. Its whole output is the object's <code>status</code>, events and metrics. Most operators provision things (a database, a certificate); the reconcile loop is the same either way, and an observing one is the shortest path to learning it.</p>
+
+  <h2 id="resource">2. The custom resource</h2>
+  <p>The type is plain Go in <code>api/v1alpha1/streamprobe_types.go</code>: a <code>Spec</code> (what the user wants) and a <code>Status</code> (what the controller found). The schema the API server enforces is generated from it by <code>controller-gen</code> (<code>make manifests</code>), driven by comments called <b>markers</b>:</p>
+<pre tabindex="0"><code>// +kubebuilder:validation:Pattern=`^https?://`
+// +required
+URL string `json:"url"`
+
+// +kubebuilder:default="30s"
+// +optional
+Interval metav1.Duration `json:"interval,omitzero"`</code></pre>
+  <p>Validation and defaults live in the CRD's OpenAPI schema, so the <b>API server</b> applies them, before any controller sees the object: <code>kubectl apply</code> of a <code>file://</code> URL is refused at the door, and an object without <code>interval</code> is stored with <code>30s</code>. Other markers add the columns of <code>kubectl get</code> and the short name <code>sp</code>.</p>
+  <p>The <code>+kubebuilder:subresource:status</code> marker splits the object in two endpoints. Users write <code>spec</code>; the controller writes <code>status</code> through <code>/status</code>. Two consequences matter later: they can have different permissions, and a status write does not change the object's <b>generation</b>, which counts spec changes only.</p>
+
+  <h2 id="reconcile">3. The reconcile loop</h2>
+  <p>A controller is a function, <code>Reconcile(ctx, request)</code>, in <code>internal/controller/streamprobe_controller.go</code>. The request carries only a namespace and a name; the controller reads the object fresh every time and decides what to do from what it sees now. This is what <b>level-based</b> means: the controller reacts to the current state, not to the event that woke it up. If ten changes happen while it is busy, it is called once and sees the last one. If the operator restarts, nothing is lost: everything it needs is in the API.</p>
+  <p>controller-runtime does the plumbing: a <b>watch</b> on StreamProbes feeds a <b>work queue</b>, which de-duplicates requests and retries failed ones with exponential back-off. Reconcile returns a <code>Result</code>: nothing, an error (retry with back-off), or <code>RequeueAfter: d</code> (call me again in <code>d</code>).</p>
+  <p>A deleted object comes in as a "not found" on the read: the controller drops what it holds for it (here, its metric series) and returns.</p>
+
+  <h2 id="periodic">4. Periodic work in a level-based loop</h2>
+  <p>A stream must be checked every 30 seconds whether or not anything changed in the cluster. The tempting design is a goroutine with a ticker per probe; it would lose its schedule on every restart, double up when two replicas run, and hide its state from <code>kubectl</code>. Instead the schedule lives in the object:</p>
+<pre class="term" tabindex="0"><code>reconcile(probe):
+  if status.lastCheckTime + interval &gt; now and status.observedGeneration == generation:
+      return RequeueAfter(the rest of the interval)     <span class="dim"># not due yet</span>
+  check the stream
+  write status (lastCheckTime = now, observedGeneration = generation, …)
+  return RequeueAfter(interval)                          <span class="dim"># the next check</span></code></pre>
+  <p>Every reconcile is safe to call at any time: early, it only reschedules; late (after a restart), it checks at once. When the user edits the spec, the generation moves past <code>observedGeneration</code> and the next reconcile checks immediately with the new settings. The interval has a floor of five seconds in code: a typo must not turn the operator into a load test of someone's origin.</p>
+
+  <h2 id="own-writes">5. Not waking up on its own writes</h2>
+  <p>Writing the status is an update to the object, and the watch delivers every update. Left alone, the controller would wake up after each of its own writes, find the check not due, and go back to sleep: harmless, but a reconcile for nothing every time. The watch is filtered with <code>GenerationChangedPredicate</code>:</p>
+<pre tabindex="0"><code>For(&amp;streamingv1alpha1.StreamProbe{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))</code></pre>
+  <p>Status writes leave the generation alone (that is what the status subresource bought us), so only spec changes, creations and deletions get through. The periodic calls come from <code>RequeueAfter</code>, which does not need an event.</p>
+
+  <h2 id="check">6. The check and the verdict</h2>
+  <p>The check itself knows nothing about Kubernetes (<code>internal/probe</code>): fetch the playlist, follow the first variant of a multivariant one, read the target duration, the media sequence and the segments, and ask the origin for the last segment, reading only its first kilobyte. The parser (<code>internal/hls</code>) reads only the tags that matter.</p>
+  <p>What a check <em>means</em> is decided by one pure function, <code>evaluate</code> in <code>internal/controller/evaluate.go</code>: previous status, check and time in; next status and verdict out. Pure means every rule is a row in a table test, no cluster and no network.</p>
+  <p>"Is the stream moving" is measured on the <b>live edge</b>, the sequence number of the last segment: media sequence plus segments minus one. Watching <code>#EXT-X-MEDIA-SEQUENCE</code> alone would call a healthy EVENT playlist stale, because it keeps its media sequence and only appends segments. An edge that goes backwards is an encoder restart, and counts as movement. Without movement for <code>staleAfter</code> (default three target durations) the stream is <code>Stale</code>.</p>
+
+  <h2 id="report">7. Conditions, events and metrics</h2>
+  <h3>Conditions</h3>
+  <p><code>status.conditions</code> is the Kubernetes convention for "how is this object": a list of <code>metav1.Condition</code>, each a type, a status (True, False, Unknown), a machine-readable <b>reason</b> and a human message. streamprobe has one, <code>Ready</code>. Generic tools understand it without knowing streamprobe: <code>kubectl wait --for=condition=Ready sp/channel-1</code> works as it does for a Deployment.</p>
+  <h3>Events</h3>
+  <p>Events are the object's history, the lines at the bottom of <code>kubectl describe</code>. They are written through the <code>events.k8s.io</code> API, with the recorder controller-runtime gives the manager. streamprobe records one only when the verdict changes: a stream stuck for a day would otherwise write an event every 30 seconds.</p>
+  <h3>Metrics</h3>
+  <p>controller-runtime already serves <code>/metrics</code> (work-queue depth, reconcile durations, API client latency). streamprobe adds its own gauges, histogram and counter to the same registry, one series per probe. A deleted probe's series are dropped by the reconcile that finds it gone, so no finalizer is needed: a finalizer is for state <em>outside</em> the operator (a cloud resource) that must be cleaned up before the object may disappear.</p>
+
+  <h2 id="rbac">8. Permissions from markers</h2>
+  <p>The operator's ServiceAccount can do exactly what three markers on the controller say, and <code>make manifests</code> writes the ClusterRole from them:</p>
+<pre tabindex="0"><code>// +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch</code></pre>
+  <p>Read the probes, write their status, write events. It cannot edit a spec, and it cannot touch anything else in the cluster. A new need is a new marker, never a hand-written Role.</p>
+
+  <h2 id="tests">9. Testing without a cluster, then with one</h2>
+  <ul>
+    <li><b>Pure tests.</b> The parser, and every rule of <code>evaluate</code>, as tables.</li>
+    <li><b>The check against a fake origin.</b> The prober runs against <code>httptest</code> servers: a multivariant playlist followed to its variant, a missing segment, an HTML page instead of a playlist.</li>
+    <li><b>envtest.</b> A real <code>kube-apiserver</code> and <code>etcd</code>, started by the test as plain processes: no Docker, no nodes, no Pods. The CRD is installed for real, so its defaults and its validation are tested as the API server applies them. The reconcile loop runs against it with a fake prober and a fake clock: Live, then Stale when the edge stops, one event per change, failures counted and cleared, a spec change checked at once, metrics dropped on delete.</li>
+    <li><b>End to end on kind.</b> The kubebuilder suite builds the image, deploys the operator into a kind cluster in CI and checks that it runs and serves its metrics.</li>
+  </ul>
+
+  <h2 id="nomad">10. If you know Nomad</h2>
+  <p>Most ideas exist on both sides, under different names. This is the map used while writing streamprobe, coming from Nomad and Consul:</p>
+  <div class="nv-table-wrap" tabindex="0" role="region" aria-label="Nomad and Kubernetes">
+    <table class="nv-table">
+      <thead><tr><th>Nomad / Consul</th><th>Kubernetes</th><th>In streamprobe</th></tr></thead>
+      <tbody>
+        <tr><td>Job specification (HCL)</td><td>An object's <code>spec</code> (YAML)</td><td><code>StreamProbe.spec</code></td></tr>
+        <tr><td>Allocation status, <code>nomad job status</code></td><td><code>status</code>, conditions, <code>kubectl get/describe</code></td><td><code>Ready</code> with its reason</td></tr>
+        <tr><td>The scheduler's evaluations and the eval broker</td><td>Controllers, the work queue and its back-off</td><td><code>Reconcile</code></td></tr>
+        <tr><td>A periodic job</td><td>A CronJob, or <code>RequeueAfter</code> in a controller</td><td><code>RequeueAfter(interval)</code></td></tr>
+        <tr><td>Consul health checks</td><td>Probes on Pods; conditions on objects</td><td>a health check for a stream, as an object</td></tr>
+        <tr><td>Job and node events</td><td>Events (<code>events.k8s.io</code>)</td><td>one per change of verdict</td></tr>
+        <tr><td>ACL policies</td><td>RBAC: Role, ClusterRole, binding</td><td>generated from markers</td></tr>
+        <tr><td>Writing a custom scheduler or a sidecar</td><td>A CRD and an operator</td><td>this repository</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The biggest difference is where logic lives. Nomad schedules what you declare and stops there; anything domain-specific runs as a job of its own and keeps its state where it likes. Kubernetes lets you extend the API: the stream becomes an object like a Deployment, with the same tools, permissions and history.</p>
+
+  <div class="next">
+    <a href="./">← Overview</a>
+    <a href="reference.html">Reference →</a>
+  </div>
+</main>
+
+<footer class="nv-wrap nv-wrap--large nv-footer">
+  <div class="nv-footer__bottom">
+    <p>streamprobe-operator · MIT · by <a href="https://allan-nava.github.io/">Allan Nava</a></p>
+    <p>Styled with <a href="https://allan-nava.github.io/nava-ui/">nava-ui</a></p>
+  </div>
+</footer>
+
+<script defer src="https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@v0.10.0/dist/nava-ui.min.js"></script>
+</body>
+</html>
