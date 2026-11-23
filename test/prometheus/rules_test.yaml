@@ -61,6 +61,11 @@ tests:
               severity: warning
               namespace: streams
               name: slow
+            exp_annotations:
+              summary: "Stream streams/slow: slow playlist"
+              description: >-
+                95% of the playlist fetches took up to 2.425s over 10 minutes.
+                A player that waits this long for a playlist falls behind the live edge.
 
   # The operator's scrape target goes down: StreamprobeDown after 5 minutes. Another job's
   # target being down does not count.
@@ -82,3 +87,8 @@ tests:
               job: streamprobe-operator-controller-manager-metrics-service
               service: streamprobe-operator-controller-manager-metrics-service
               namespace: streamprobe-system
+            exp_annotations:
+              summary: "streamprobe-operator is not scraped"
+              description: >-
+                Prometheus has not read the operator's metrics for 5 minutes: no stream is being
+                watched, and StreamNotLive cannot fire.
