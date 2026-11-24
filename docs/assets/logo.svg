@@ -1,11 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="streamprobe-operator">
-  <rect width="64" height="64" rx="14" fill="#050505"/>
-  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#10cf53" stroke-opacity=".35" stroke-width="2"/>
-  <!-- segments of a playlist, the last one is the live edge -->
-  <rect x="10" y="38" width="8" height="14" rx="2" fill="#10cf53" fill-opacity=".35"/>
-  <rect x="21" y="34" width="8" height="18" rx="2" fill="#10cf53" fill-opacity=".5"/>
-  <rect x="32" y="30" width="8" height="22" rx="2" fill="#10cf53" fill-opacity=".7"/>
-  <rect x="43" y="24" width="8" height="28" rx="2" fill="#10cf53"/>
-  <!-- the probe's pulse over them -->
-  <path d="M8 20h12l4-8 6 16 5-10h21" fill="none" stroke="#eae4e4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="streamprobe-operator logo">
+  <defs>
+    <linearGradient id="sp-bg" x1="64" y1="24" x2="448" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#17274a"/>
+      <stop offset="0.55" stop-color="#0e1830"/>
+      <stop offset="1" stop-color="#0a1020"/>
+    </linearGradient>
+    <linearGradient id="sp-rim" x1="256" y1="8" x2="256" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sp-loop" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="sp-seg" x1="120" y1="230" x2="300" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="sp-pulse" x1="130" y1="200" x2="382" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset="0.55" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app-icon plate: the same family as segcheck, latencyprobe and checkfleet -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#sp-bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#sp-rim)"/>
+  <rect x="8.75" y="8.75" width="494.5" height="494.5" rx="115.25" fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="1.5"/>
+
+  <!-- the reconcile loop: the operator comes back on every interval -->
+  <path d="M410 214 A162 162 0 1 0 404 316" stroke="url(#sp-loop)" stroke-width="26" stroke-linecap="round"/>
+  <path d="M432 186 L410 228 L380 196 Z" fill="#5eead4" stroke="#5eead4" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- the playlist: segments rising to the live edge -->
+  <g fill="url(#sp-seg)" fill-opacity="0.95">
+    <rect x="140" y="300" width="40" height="44" rx="10"/>
+    <rect x="190" y="282" width="40" height="62" rx="10"/>
+    <rect x="240" y="264" width="40" height="80" rx="10"/>
+  </g>
+  <!-- the live edge -->
+  <rect x="290" y="246" width="40" height="98" rx="10" fill="#10b981"/>
+  <!-- the next segment, which must arrive for the stream to be live -->
+  <rect x="343.5" y="231.5" width="33" height="109" rx="9" fill="none" stroke="#f59e0b" stroke-width="7" stroke-dasharray="14 9"/>
+
+  <!-- the probe's pulse -->
+  <path d="M132 214 H200 L222 166 L250 236 L272 190 L286 214 H352" stroke="url(#sp-pulse)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

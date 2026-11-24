@@ -1,4 +1,8 @@
-# streamprobe-operator
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="streamprobe-operator" width="96" height="96">
+</p>
+
+<h1 align="center">streamprobe-operator</h1>
 
 **A Kubernetes operator that watches live HLS streams.** Declare a stream as a `StreamProbe`;
 the operator checks it on an interval and tells you, in the resource's status, in events and in
