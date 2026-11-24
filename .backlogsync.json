@@ -3,12 +3,35 @@
   "meta": "sp",
   "name": "streamprobe-operator",
   "labels": {
-    "api": ["1d76db", "The StreamProbe CRD: spec, status, validation"],
-    "controller": ["0e8a16", "Reconcile loop, conditions, events"],
-    "probe": ["5319e7", "What a check reads from the stream: HLS, DASH, segments"],
-    "observability": ["fbca04", "Metrics, dashboards, alerts"],
-    "deploy": ["d93f0b", "Image, Helm chart, kustomize, GitOps"],
-    "ci": ["c5def5", "Workflows, tests on a cluster, releases"],
-    "docs": ["0075ca", "README, agent files, write-ups"]
-  }
+    "api": [
+      "1d76db",
+      "The StreamProbe CRD: spec, status, validation"
+    ],
+    "controller": [
+      "0e8a16",
+      "Reconcile loop, conditions, events"
+    ],
+    "probe": [
+      "5319e7",
+      "What a check reads from the stream: HLS, DASH, segments"
+    ],
+    "observability": [
+      "fbca04",
+      "Metrics, dashboards, alerts"
+    ],
+    "deploy": [
+      "d93f0b",
+      "Image, Helm chart, kustomize, GitOps"
+    ],
+    "ci": [
+      "c5def5",
+      "Workflows, tests on a cluster, releases"
+    ],
+    "docs": [
+      "0075ca",
+      "README, agent files, write-ups"
+    ]
+  },
+  "closeMilestones": true,
+  "syncBody": true
 }

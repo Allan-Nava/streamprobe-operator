@@ -10,7 +10,7 @@
 
 | Milestone | Phase | Progress | Open | Shipped |
 |---|---|---|---|---|
-| **v0.1.0 — A probe that reconciles** | now | `##########` 100% | 0 | 5 |
+| **v0.1.0 — A probe that reconciles** | shipped | `##########` 100% | 0 | 5 |
 | **v0.2.0 — On a real cluster** | next | `########..` 75% | 1 | 3 |
 | **v0.3.0 — Seen from Grafana** | later | `##########` 100% | 0 | 2 |
 | **v0.4.0 — Probes that know more** | later | `##........` 20% | 4 | 1 |

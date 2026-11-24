@@ -10,7 +10,7 @@ follow it on push to main.
 - [ ] **SP-99 — Short name**: what it is, why, what it touches. <!-- sp: prio=high size=M labels=controller -->
 ```
 
-## v0.1.0 — A probe that reconciles <!-- ms: phase=now -->
+## v0.1.0 — A probe that reconciles <!-- ms: phase=shipped -->
 
 The smallest operator that is useful: one custom resource per stream, checked on an interval
 by the controller itself, the result in the status, events and metrics.

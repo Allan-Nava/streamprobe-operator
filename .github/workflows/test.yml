@@ -53,3 +53,19 @@ jobs:
           python3 test/grafana/dashboard_queries.py dist/chart/files/streamprobe-dashboard.json > dashboard-rules.yaml
           docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.5.0 \
             check rules dashboard-rules.yaml
+
+  # BACKLOG.md valid and ROADMAP.md generated from it (backlogsync check; phase warnings
+  # are printed and do not fail).
+  backlog:
+    permissions:
+      contents: read
+    name: Backlog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: Allan-Nava/backlogsync@backlogsync--v0.2.0
+        with:
+          command: check
