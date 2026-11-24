@@ -38,9 +38,22 @@ type Result struct {
 	SegmentLatency time.Duration
 }
 
+// VariantResult is one variant of a multivariant playlist, checked: its Result, or the Err that
+// kept it from being read. For a media playlist there is one, with the probe's URL as URI.
+type VariantResult struct {
+	Variant hls.Variant
+	Result  *Result
+	Err     error
+}
+
 // Prober checks a stream. The controller holds one; tests replace it.
 type Prober interface {
+	// Check reads the URL, or the first variant of a multivariant playlist.
 	Check(ctx context.Context, url string, checkSegment bool) (*Result, error)
+	// CheckAll reads every variant of a multivariant playlist (SP-12), one after the other within
+	// the same deadline. The error is for the multivariant playlist itself; a variant that fails
+	// carries its own Err.
+	CheckAll(ctx context.Context, url string, checkSegment bool) ([]VariantResult, error)
 }
 
 // HTTPProber checks over HTTP with the client it is given; the deadline comes from the context.
@@ -65,26 +78,61 @@ var ErrNoSegments = errors.New("the media playlist lists no segment")
 // that cannot be fetched or parsed is an error; a segment that answers with an error status is
 // not: it is reported in the result, for the controller to judge.
 func (p *HTTPProber) Check(ctx context.Context, url string, checkSegment bool) (*Result, error) {
+	variants, err := p.check(ctx, url, checkSegment, false)
+	if err != nil {
+		return nil, err
+	}
+	return variants[0].Result, variants[0].Err
+}
+
+// CheckAll is Check for every variant.
+func (p *HTTPProber) CheckAll(ctx context.Context, url string, checkSegment bool) ([]VariantResult, error) {
+	return p.check(ctx, url, checkSegment, true)
+}
+
+func (p *HTTPProber) check(ctx context.Context, url string, checkSegment, all bool) ([]VariantResult, error) {
 	pl, latency, err := p.playlist(ctx, url)
 	if err != nil {
 		return nil, &FetchError{URL: url, Err: err}
 	}
-	playlistURL := url
-	if pl.Multivariant {
-		if len(pl.Variants) == 0 {
-			return nil, &FetchError{URL: url, Err: errors.New("multivariant playlist with no variant")}
-		}
-		if playlistURL, err = hls.Resolve(url, pl.Variants[0]); err != nil {
-			return nil, &FetchError{URL: url, Err: err}
-		}
-		if pl, latency, err = p.playlist(ctx, playlistURL); err != nil {
-			return nil, &FetchError{URL: playlistURL, Err: err}
-		}
-		if pl.Multivariant {
-			return nil, &FetchError{URL: playlistURL, Err: errors.New("a variant is itself a multivariant playlist")}
-		}
+	if !pl.Multivariant {
+		r, err := p.media(ctx, url, pl, latency, checkSegment)
+		return []VariantResult{{Variant: hls.Variant{URI: url}, Result: r, Err: err}}, nil
 	}
+	if len(pl.Variants) == 0 {
+		return nil, &FetchError{URL: url, Err: errors.New("multivariant playlist with no variant")}
+	}
+	variants := pl.Variants
+	if !all {
+		variants = variants[:1]
+	}
+	out := make([]VariantResult, 0, len(variants))
+	for _, v := range variants {
+		vr := VariantResult{Variant: v}
+		vr.Result, vr.Err = p.variant(ctx, url, v.URI, checkSegment)
+		out = append(out, vr)
+	}
+	return out, nil
+}
 
+// variant reads one variant's media playlist and its live-edge segment.
+func (p *HTTPProber) variant(ctx context.Context, base, uri string, checkSegment bool) (*Result, error) {
+	playlistURL, err := hls.Resolve(base, uri)
+	if err != nil {
+		return nil, &FetchError{URL: base, Err: err}
+	}
+	pl, latency, err := p.playlist(ctx, playlistURL)
+	if err != nil {
+		return nil, &FetchError{URL: playlistURL, Err: err}
+	}
+	if pl.Multivariant {
+		return nil, &FetchError{URL: playlistURL, Err: errors.New("a variant is itself a multivariant playlist")}
+	}
+	return p.media(ctx, playlistURL, pl, latency, checkSegment)
+}
+
+// media turns a fetched media playlist into a Result, asking for its live-edge segment.
+func (p *HTTPProber) media(ctx context.Context, playlistURL string, pl *hls.Playlist, latency time.Duration, checkSegment bool) (*Result, error) {
 	r := &Result{
 		PlaylistURL:     playlistURL,
 		TargetDuration:  pl.TargetDuration,
@@ -99,7 +147,7 @@ func (p *HTTPProber) Check(ctx context.Context, url string, checkSegment bool) (
 	if !checkSegment {
 		return r, nil
 	}
-
+	var err error
 	if r.SegmentURL, err = hls.Resolve(playlistURL, pl.Segments[len(pl.Segments)-1]); err != nil {
 		return r, &FetchError{URL: playlistURL, Err: err}
 	}

@@ -69,6 +69,7 @@
           <tr><td><code>timeout</code></td><td>duration</td><td><code>10s</code></td><td>Bounds one whole check: playlist, variant and segment.</td></tr>
           <tr><td><code>staleAfter</code></td><td>duration</td><td>three target durations</td><td>How long the live edge may stand still before the stream is <code>Stale</code>. Without a target duration in the playlist: three intervals.</td></tr>
           <tr><td><code>checkSegment</code></td><td>bool</td><td><code>true</code></td><td>Ask the origin for the live-edge segment on every check (first 1&nbsp;KB only).</td></tr>
+          <tr><td><code>variants</code></td><td><code>First</code> or <code>All</code></td><td><code>First</code></td><td>Which variants of a multivariant playlist are checked. <code>First</code>: the first listed. <code>All</code>: every variant, each with a line in <code>status.variants</code>; Ready is the worst of them, and its message names the variant and counts the live ones. On a media playlist both mean the URL.</td></tr>
         </tbody>
       </table>
     </div>
@@ -92,6 +93,7 @@
           <tr><td><code>segmentStatus</code></td><td>HTTP status of the live-edge segment; 0 when not checked or no answer.</td></tr>
           <tr><td><code>consecutiveFailures</code></td><td>Checks in a row that could not read the playlist; 0 after a good one.</td></tr>
           <tr><td><code>lastError</code></td><td>The error of the last failed check; empty after a good one.</td></tr>
+          <tr><td><code>variants</code></td><td>With <code>spec.variants: All</code>, one line per variant: <code>uri</code>, <code>bandwidth</code>, <code>resolution</code>, <code>reason</code>, <code>message</code>, <code>liveEdge</code>, <code>lastAdvanceTime</code>. The other status fields describe the first variant.</td></tr>
         </tbody>
       </table>
     </div>
@@ -128,6 +130,7 @@ kubectl get sp -o custom-columns=NAME:.metadata.name,REASON:.status.conditions[0
           <tr><td><code>streamprobe_seconds_since_advance</code></td><td>gauge</td><td>Seconds since the live edge last moved, at the last check.</td></tr>
           <tr><td><code>streamprobe_playlist_fetch_seconds</code></td><td>histogram</td><td>Time to fetch the media playlist.</td></tr>
           <tr><td><code>streamprobe_checks_total</code></td><td>counter</td><td>Checks, with an extra <code>reason</code> label.</td></tr>
+          <tr><td><code>streamprobe_variant_ready</code></td><td>gauge</td><td>1 when the variant is live, else 0, with an extra <code>variant</code> label (its URI); only with <code>spec.variants: All</code>.</td></tr>
         </tbody>
       </table>
     </div>

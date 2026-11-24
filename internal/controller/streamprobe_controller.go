@@ -67,8 +67,24 @@ func (r *StreamProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	// One check: the URL (or its first variant), or every variant (spec.variants: All). With
+	// All, the stream's own fields describe the first variant, and the verdict is the worst
+	// variant's.
+	all := sp.Spec.Variants == streamingv1alpha1.VariantsAll
 	checkCtx, cancel := context.WithTimeout(ctx, timeout(&sp))
-	res, checkErr := r.Prober.Check(checkCtx, sp.Spec.URL, checkSegment(&sp))
+	var (
+		res      *probe.Result
+		checkErr error
+		variants []probe.VariantResult
+	)
+	if all {
+		variants, checkErr = r.Prober.CheckAll(checkCtx, sp.Spec.URL, checkSegment(&sp))
+		if checkErr == nil && len(variants) > 0 {
+			res, checkErr = variants[0].Result, variants[0].Err
+		}
+	} else {
+		res, checkErr = r.Prober.Check(checkCtx, sp.Spec.URL, checkSegment(&sp))
+	}
 	cancel()
 	if res == nil && checkErr == nil {
 		checkErr = probe.ErrNoSegments
@@ -80,6 +96,16 @@ func (r *StreamProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	prev := meta.FindStatusCondition(sp.Status.Conditions, streamingv1alpha1.ConditionReady)
 	status, v := evaluate(&sp, good, checkErr, now)
+	switch {
+	case !all:
+		status.Variants = nil
+	case len(variants) > 0:
+		lines, worst := evaluateVariants(&sp, variants, now)
+		status.Variants = lines
+		if severity[worst.reason] >= severity[v.reason] {
+			v = worst
+		}
+	}
 	sp.Status = status
 	meta.SetStatusCondition(&sp.Status.Conditions, metav1.Condition{
 		Type:               streamingv1alpha1.ConditionReady,
@@ -108,6 +134,7 @@ func (r *StreamProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	r.record(&sp, good, v, now)
+	recordVariants(&sp)
 	return ctrl.Result{RequeueAfter: every}, nil
 }
 

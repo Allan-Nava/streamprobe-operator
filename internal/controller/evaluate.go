@@ -54,23 +54,34 @@ func evaluate(sp *streamingv1alpha1.StreamProbe, res *probe.Result, checkErr err
 	st.PlaylistLatencyMilliseconds = res.PlaylistLatency.Milliseconds()
 	st.SegmentStatus = int32(res.SegmentStatus)
 	st.MediaSequence = res.MediaSequence
+
+	var v verdict
+	st.LiveEdge, st.LastAdvanceTime, v = judge(sp, prev.LiveEdge, prev.LastAdvanceTime, res, now)
+	return st, v
+}
+
+// judge is the verdict on one good read of one media playlist, given where its live edge was
+// and when it last moved. It returns the new edge and advance time with the verdict. Shared by
+// the stream's own status and by each line of status.variants.
+func judge(sp *streamingv1alpha1.StreamProbe, prevEdge int64, prevAdvance *metav1.Time, res *probe.Result, now time.Time) (int64, *metav1.Time, verdict) {
+	t := metav1.NewTime(now)
 	edge := res.MediaSequence + int64(res.Segments) - 1
 
 	// The first good check counts as an advance: there is nothing to compare with yet. So does
 	// an edge that went back, which is an encoder restart, not a stall.
-	if prev.LastAdvanceTime == nil || edge != prev.LiveEdge {
-		st.LastAdvanceTime = &t
+	advance := prevAdvance
+	if prevAdvance == nil || edge != prevEdge {
+		advance = &t
 	}
-	st.LiveEdge = edge
 
 	if res.Ended {
-		return st, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonEnded,
+		return edge, advance, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonEnded,
 			"the playlist has #EXT-X-ENDLIST: the stream is over, or the URL is VOD"}
 	}
 
-	stuck := now.Sub(st.LastAdvanceTime.Time)
+	stuck := now.Sub(advance.Time)
 	if limit := staleAfter(sp, res.TargetDuration); stuck > limit {
-		return st, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonStale,
+		return edge, advance, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonStale,
 			fmt.Sprintf("the live edge has been at segment %d for %s (limit %s)", edge, stuck.Round(time.Second), limit)}
 	}
 
@@ -79,12 +90,78 @@ func evaluate(sp *streamingv1alpha1.StreamProbe, res *probe.Result, checkErr err
 		if res.SegmentStatus == 0 {
 			got = "no answer"
 		}
-		return st, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonSegmentFailed,
+		return edge, advance, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonSegmentFailed,
 			fmt.Sprintf("the live-edge segment %s: %s", res.SegmentURL, got)}
 	}
 
-	return st, verdict{metav1.ConditionTrue, streamingv1alpha1.ReasonLive,
-		fmt.Sprintf("live edge at segment %d, playlist in %dms", edge, st.PlaylistLatencyMilliseconds)}
+	return edge, advance, verdict{metav1.ConditionTrue, streamingv1alpha1.ReasonLive,
+		fmt.Sprintf("live edge at segment %d, playlist in %dms", edge, res.PlaylistLatency.Milliseconds())}
+}
+
+// severity orders the reasons, worst first, to pick the verdict of a stream from its variants.
+var severity = map[string]int{
+	streamingv1alpha1.ReasonFetchFailed:   5,
+	streamingv1alpha1.ReasonEnded:         4,
+	streamingv1alpha1.ReasonStale:         3,
+	streamingv1alpha1.ReasonSegmentFailed: 2,
+	streamingv1alpha1.ReasonLive:          1,
+}
+
+// evaluateVariants judges every variant against its own previous line (matched by URI) and
+// returns the new lines and the worst verdict, its message naming the variant and counting the
+// live ones. A variant missing from the previous lines starts fresh; one that left the
+// playlist is dropped.
+func evaluateVariants(sp *streamingv1alpha1.StreamProbe, results []probe.VariantResult, now time.Time) ([]streamingv1alpha1.VariantStatus, verdict) {
+	prev := map[string]streamingv1alpha1.VariantStatus{}
+	for _, vs := range sp.Status.Variants {
+		prev[vs.URI] = vs
+	}
+	lines := make([]streamingv1alpha1.VariantStatus, 0, len(results))
+	var worst verdict
+	worstAt, live := -1, 0
+	for i, r := range results {
+		line := streamingv1alpha1.VariantStatus{URI: r.Variant.URI, Bandwidth: r.Variant.Bandwidth, Resolution: r.Variant.Resolution}
+		old := prev[r.Variant.URI]
+		var v verdict
+		if r.Err != nil || r.Result == nil {
+			msg := "no result"
+			if r.Err != nil {
+				msg = r.Err.Error()
+			}
+			v = verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonFetchFailed, msg}
+			line.LiveEdge, line.LastAdvanceTime = old.LiveEdge, old.LastAdvanceTime
+		} else {
+			line.LiveEdge, line.LastAdvanceTime, v = judge(sp, old.LiveEdge, old.LastAdvanceTime, r.Result, now)
+		}
+		line.Reason, line.Message = v.reason, v.message
+		lines = append(lines, line)
+		if v.status == metav1.ConditionTrue {
+			live++
+		}
+		if worstAt < 0 || severity[v.reason] > severity[worst.reason] {
+			worst, worstAt = v, i
+		}
+	}
+	if worstAt < 0 {
+		return lines, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonFetchFailed, "the multivariant playlist lists no variant"}
+	}
+	count := fmt.Sprintf("%d of %d variants live", live, len(results))
+	if worst.status == metav1.ConditionTrue {
+		worst.message = count
+		return lines, worst
+	}
+	worst.message = fmt.Sprintf("variant %s: %s; %s", describe(lines[worstAt]), worst.message, count)
+	return lines, worst
+}
+
+func describe(v streamingv1alpha1.VariantStatus) string {
+	switch {
+	case v.Resolution != "" && v.Bandwidth > 0:
+		return fmt.Sprintf("%s (%s, %d kb/s)", v.URI, v.Resolution, v.Bandwidth/1000)
+	case v.Bandwidth > 0:
+		return fmt.Sprintf("%s (%d kb/s)", v.URI, v.Bandwidth/1000)
+	}
+	return v.URI
 }
 
 // staleAfter is the spec's value, or three target durations; with no target duration either,

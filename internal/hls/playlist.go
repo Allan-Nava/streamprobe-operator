@@ -20,8 +20,8 @@ import (
 type Playlist struct {
 	// Multivariant is true for a master playlist: it lists variants, not segments.
 	Multivariant bool
-	// Variants are the variant playlist URIs of a multivariant playlist, in order.
-	Variants []string
+	// Variants are the variants of a multivariant playlist, in the order listed.
+	Variants []Variant
 
 	// TargetDuration is #EXT-X-TARGETDURATION, in seconds: the longest a segment may be.
 	TargetDuration int
@@ -34,6 +34,14 @@ type Playlist struct {
 	Ended bool
 }
 
+// Variant is one #EXT-X-STREAM-INF entry: the URI of its media playlist and the attributes a
+// person uses to tell variants apart.
+type Variant struct {
+	URI        string
+	Bandwidth  int64  // BANDWIDTH, bits per second; 0 when missing
+	Resolution string // RESOLUTION, e.g. 1280x720; empty when missing
+}
+
 // ErrNotPlaylist is returned when the body does not start with #EXTM3U.
 var ErrNotPlaylist = errors.New("not an HLS playlist: missing #EXTM3U")
 
@@ -44,7 +52,7 @@ func Parse(r io.Reader) (*Playlist, error) {
 
 	p := &Playlist{}
 	first := true
-	expectVariant := false
+	var pending *Variant
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if first {
@@ -60,7 +68,7 @@ func Parse(r io.Reader) (*Playlist, error) {
 		case line == "":
 		case strings.HasPrefix(line, "#EXT-X-STREAM-INF:"):
 			p.Multivariant = true
-			expectVariant = true
+			pending = streamInf(strings.TrimPrefix(line, "#EXT-X-STREAM-INF:"))
 		case strings.HasPrefix(line, "#EXT-X-TARGETDURATION:"):
 			v, err := strconv.Atoi(strings.TrimPrefix(line, "#EXT-X-TARGETDURATION:"))
 			if err != nil {
@@ -78,9 +86,10 @@ func Parse(r io.Reader) (*Playlist, error) {
 		case strings.HasPrefix(line, "#"):
 			// Another tag or a comment.
 		default:
-			if expectVariant {
-				p.Variants = append(p.Variants, line)
-				expectVariant = false
+			if pending != nil {
+				pending.URI = line
+				p.Variants = append(p.Variants, *pending)
+				pending = nil
 			} else if !p.Multivariant {
 				p.Segments = append(p.Segments, line)
 			}
@@ -93,6 +102,40 @@ func Parse(r io.Reader) (*Playlist, error) {
 		return nil, ErrNotPlaylist
 	}
 	return p, nil
+}
+
+// streamInf reads BANDWIDTH and RESOLUTION from an #EXT-X-STREAM-INF attribute list. Values in
+// quotes may hold commas (CODECS="avc1.4d401f,mp4a.40.2"), so the list is split by hand.
+func streamInf(attrs string) *Variant {
+	v := &Variant{}
+	for _, kv := range splitAttributes(attrs) {
+		key, value, ok := strings.Cut(kv, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "BANDWIDTH":
+			v.Bandwidth, _ = strconv.ParseInt(value, 10, 64)
+		case "RESOLUTION":
+			v.Resolution = value
+		}
+	}
+	return v
+}
+
+func splitAttributes(s string) []string {
+	var out []string
+	start, quoted := 0, false
+	for i, r := range s {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case r == ',' && !quoted:
+			out = append(out, strings.TrimSpace(s[start:i]))
+			start = i + 1
+		}
+	}
+	return append(out, strings.TrimSpace(s[start:]))
 }
 
 // Resolve turns a URI found in a playlist into an absolute URL, relative to the playlist's.

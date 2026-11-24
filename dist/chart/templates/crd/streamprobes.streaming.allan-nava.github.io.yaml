@@ -94,6 +94,17 @@ spec:
                 maxLength: 2048
                 pattern: ^https?://
                 type: string
+              variants:
+                default: First
+                description: |-
+                  variants is which variants of a multivariant playlist are checked. First: the first one
+                  listed (one variant stands for the stream). All: every variant, each with its line in
+                  status.variants, and Ready is the worst of them: a variant that stalls while the others
+                  move is the classic encoder fault. On a media playlist both mean the URL itself.
+                enum:
+                - First
+                - All
+                type: string
             required:
             - url
             type: object
@@ -215,6 +226,50 @@ spec:
                   last successful check.'
                 format: int32
                 type: integer
+              variants:
+                description: variants has one line per variant when spec.variants
+                  is All; empty otherwise.
+                items:
+                  description: 'VariantStatus is one variant, as the last check found
+                    it (spec.variants: All).'
+                  properties:
+                    bandwidth:
+                      description: bandwidth is the variant's BANDWIDTH, in bits per
+                        second.
+                      format: int64
+                      type: integer
+                    lastAdvanceTime:
+                      description: lastAdvanceTime is when the variant's live edge
+                        was last seen moving.
+                      format: date-time
+                      type: string
+                    liveEdge:
+                      description: liveEdge is the sequence number of the variant's
+                        last segment.
+                      format: int64
+                      type: integer
+                    message:
+                      description: message says why, in words.
+                      type: string
+                    reason:
+                      description: 'reason is this variant''s verdict: Live, Stale,
+                        Ended, FetchFailed or SegmentFailed.'
+                      type: string
+                    resolution:
+                      description: resolution is the variant's RESOLUTION, e.g. 1280x720.
+                      type: string
+                    uri:
+                      description: uri is the variant's media playlist, as listed
+                        in the multivariant playlist.
+                      type: string
+                  required:
+                  - reason
+                  - uri
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - uri
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec

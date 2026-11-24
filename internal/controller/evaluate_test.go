@@ -3,12 +3,14 @@
 package controller
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	streamingv1alpha1 "github.com/Allan-Nava/streamprobe-operator/api/v1alpha1"
+	"github.com/Allan-Nava/streamprobe-operator/internal/hls"
 	"github.com/Allan-Nava/streamprobe-operator/internal/probe"
 )
 
@@ -105,5 +107,50 @@ func TestIntervalHasAFloor(t *testing.T) {
 	sp := &streamingv1alpha1.StreamProbe{Spec: streamingv1alpha1.StreamProbeSpec{Interval: metav1.Duration{Duration: time.Second}}}
 	if got := interval(sp); got != minInterval {
 		t.Fatalf("interval %s, want %s", got, minInterval)
+	}
+}
+
+func TestEvaluateVariants(t *testing.T) {
+	ok := func(uri string, seq int64) probe.VariantResult {
+		return probe.VariantResult{Variant: hls.Variant{URI: uri, Bandwidth: 1000000},
+			Result: &probe.Result{TargetDuration: 6, MediaSequence: seq, Segments: 3, SegmentURL: "s", SegmentStatus: 200}}
+	}
+	failed := probe.VariantResult{Variant: hls.Variant{URI: "gone.m3u8"}, Err: &probe.FetchError{URL: "gone.m3u8", Err: probe.ErrNoSegments}}
+	ended := ok("ended.m3u8", 10)
+	ended.Result.Ended = true
+
+	for _, c := range []struct {
+		name    string
+		prev    []streamingv1alpha1.VariantStatus
+		results []probe.VariantResult
+		now     time.Duration
+		reason  string
+		prefix  string
+	}{
+		{name: "all live", results: []probe.VariantResult{ok("a", 10), ok("b", 10)},
+			reason: streamingv1alpha1.ReasonLive, prefix: "2 of 2 variants live"},
+		{name: "one stale among moving ones",
+			prev:    []streamingv1alpha1.VariantStatus{{URI: "a", LiveEdge: 12, LastAdvanceTime: start()}, {URI: "b", LiveEdge: 12, LastAdvanceTime: start()}},
+			results: []probe.VariantResult{ok("a", 20), ok("b", 10)}, now: time.Minute,
+			reason: streamingv1alpha1.ReasonStale, prefix: "variant b (1000 kb/s): the live edge"},
+		{name: "a failing variant beats a stale one",
+			prev:    []streamingv1alpha1.VariantStatus{{URI: "a", LiveEdge: 12, LastAdvanceTime: start()}},
+			results: []probe.VariantResult{ok("a", 10), failed}, now: time.Minute,
+			reason: streamingv1alpha1.ReasonFetchFailed, prefix: "variant gone.m3u8: playlist gone.m3u8"},
+		{name: "ended", results: []probe.VariantResult{ok("a", 10), ended},
+			reason: streamingv1alpha1.ReasonEnded, prefix: "variant ended.m3u8 (1000 kb/s): the playlist has #EXT-X-ENDLIST"},
+		{name: "no variant", results: nil,
+			reason: streamingv1alpha1.ReasonFetchFailed, prefix: "the multivariant playlist lists no variant"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			sp := &streamingv1alpha1.StreamProbe{Status: streamingv1alpha1.StreamProbeStatus{Variants: c.prev}}
+			lines, v := evaluateVariants(sp, c.results, t0.Add(c.now))
+			if v.reason != c.reason || !strings.HasPrefix(v.message, c.prefix) {
+				t.Fatalf("got %s %q, want %s %q…", v.reason, v.message, c.reason, c.prefix)
+			}
+			if len(lines) != len(c.results) {
+				t.Fatalf("%d lines for %d variants", len(lines), len(c.results))
+			}
+		})
 	}
 }

@@ -3,6 +3,7 @@
 package controller
 
 import (
+	streamingv1alpha1 "github.com/Allan-Nava/streamprobe-operator/api/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -41,6 +42,11 @@ var (
 		Buckets: []float64{.025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 	}, probeLabels)
 
+	variantReadyGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "streamprobe_variant_ready",
+		Help: "1 when the variant is live, 0 otherwise; only for StreamProbes with spec.variants: All.",
+	}, []string{labelNamespace, labelName, "variant"})
+
 	checksTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "streamprobe_checks_total",
 		Help: "Checks made, by the reason of the Ready condition they led to.",
@@ -48,7 +54,7 @@ var (
 )
 
 func init() {
-	metrics.Registry.MustRegister(readyGauge, liveEdgeGauge, sinceAdvanceGauge, playlistSeconds, checksTotal)
+	metrics.Registry.MustRegister(readyGauge, liveEdgeGauge, sinceAdvanceGauge, playlistSeconds, checksTotal, variantReadyGauge)
 }
 
 func forgetMetrics(namespace, name string) {
@@ -58,4 +64,18 @@ func forgetMetrics(namespace, name string) {
 	sinceAdvanceGauge.Delete(l)
 	playlistSeconds.Delete(l)
 	checksTotal.DeletePartialMatch(l)
+	variantReadyGauge.DeletePartialMatch(l)
+}
+
+// recordVariants rewrites the probe's variant series from status.variants: a variant that left
+// the playlist, or a probe switched back to First, leaves no series behind.
+func recordVariants(sp *streamingv1alpha1.StreamProbe) {
+	variantReadyGauge.DeletePartialMatch(prometheus.Labels{labelNamespace: sp.Namespace, labelName: sp.Name})
+	for _, v := range sp.Status.Variants {
+		ready := 0.0
+		if v.Reason == streamingv1alpha1.ReasonLive {
+			ready = 1
+		}
+		variantReadyGauge.WithLabelValues(sp.Namespace, sp.Name, v.URI).Set(ready)
+	}
 }

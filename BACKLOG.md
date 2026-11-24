@@ -80,14 +80,19 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
 
 ## v0.4.0 — Probes that know more <!-- ms: phase=later -->
 
-- [ ] **SP-12 — Every variant**: check all the variants of a multivariant playlist, or the ones
+- [x] **SP-12 — Every variant**: check all the variants of a multivariant playlist, or the ones
   chosen by bandwidth or name, each with its own status line; a variant that stalls while the
-  others move is the classic encoder fault. <!-- sp: prio=med size=M labels=probe,api -->
+  others move is the classic encoder fault. Done for all of them: `spec.variants: All` (default
+  `First`), a line per variant in `status.variants` with bandwidth and resolution, Ready as the
+  worst variant naming it, `streamprobe_variant_ready`; checked on the Unified Streaming demo
+  (two variants, both live). Choosing some variants is SP-18. <!-- sp: prio=med size=M labels=probe,api ver=main -->
 - [ ] **SP-13 — Headers from a Secret**: `spec.headersFrom` (a Secret's keys as request
   headers) for origins behind a token, never the token in the spec. <!-- sp: prio=med size=S labels=api,probe -->
 - [ ] **SP-14 — CEL validation**: `x-kubernetes-validations` on the spec (interval at least 5s,
   timeout shorter than interval, staleAfter longer than interval), so a bad value is refused by
   the API server instead of corrected in code. <!-- sp: prio=low size=S labels=api -->
+- [ ] **SP-18 — Choose the variants**: with `variants: All`, a filter by bandwidth range or by URI
+  pattern, so a stream with twelve renditions can watch the three that matter. <!-- sp: prio=low size=S labels=probe,api -->
 - [ ] **SP-15 — DASH**: the same checks on an MPD: `availabilityStartTime`, the segment
   timeline's last entry as the live edge. <!-- sp: prio=low size=L labels=probe -->
 

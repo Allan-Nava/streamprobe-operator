@@ -25,6 +25,12 @@ const (
 	ReasonPending       = "Pending"
 )
 
+// Which variants of a multivariant playlist are checked (spec.variants).
+const (
+	VariantsFirst = "First"
+	VariantsAll   = "All"
+)
+
 // StreamProbeSpec is the stream to watch and how often.
 type StreamProbeSpec struct {
 	// url is the HLS playlist of the stream: a media playlist, or a multivariant (master) one,
@@ -54,6 +60,44 @@ type StreamProbeSpec struct {
 	// +kubebuilder:default=true
 	// +optional
 	CheckSegment *bool `json:"checkSegment,omitempty"`
+
+	// variants is which variants of a multivariant playlist are checked. First: the first one
+	// listed (one variant stands for the stream). All: every variant, each with its line in
+	// status.variants, and Ready is the worst of them: a variant that stalls while the others
+	// move is the classic encoder fault. On a media playlist both mean the URL itself.
+	// +kubebuilder:validation:Enum=First;All
+	// +kubebuilder:default=First
+	// +optional
+	Variants string `json:"variants,omitempty"`
+}
+
+// VariantStatus is one variant, as the last check found it (spec.variants: All).
+type VariantStatus struct {
+	// uri is the variant's media playlist, as listed in the multivariant playlist.
+	URI string `json:"uri"`
+
+	// bandwidth is the variant's BANDWIDTH, in bits per second.
+	// +optional
+	Bandwidth int64 `json:"bandwidth,omitempty"`
+
+	// resolution is the variant's RESOLUTION, e.g. 1280x720.
+	// +optional
+	Resolution string `json:"resolution,omitempty"`
+
+	// reason is this variant's verdict: Live, Stale, Ended, FetchFailed or SegmentFailed.
+	Reason string `json:"reason"`
+
+	// message says why, in words.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// liveEdge is the sequence number of the variant's last segment.
+	// +optional
+	LiveEdge int64 `json:"liveEdge,omitempty"`
+
+	// lastAdvanceTime is when the variant's live edge was last seen moving.
+	// +optional
+	LastAdvanceTime *metav1.Time `json:"lastAdvanceTime,omitempty"`
 }
 
 // StreamProbeStatus is what the last checks found.
@@ -106,6 +150,12 @@ type StreamProbeStatus struct {
 	// consecutiveFailures counts the checks in a row that could not read the playlist.
 	// +optional
 	ConsecutiveFailures int32 `json:"consecutiveFailures,omitempty"`
+
+	// variants has one line per variant when spec.variants is All; empty otherwise.
+	// +listType=map
+	// +listMapKey=uri
+	// +optional
+	Variants []VariantStatus `json:"variants,omitempty"`
 
 	// lastError is the error of the last failed check, empty after a good one.
 	// +optional

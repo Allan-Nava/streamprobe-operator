@@ -27,6 +27,8 @@ func body(s string) func(w http.ResponseWriter) {
 	return func(w http.ResponseWriter) { _, _ = w.Write([]byte(s)) }
 }
 
+const indexPath = "/index.m3u8"
+
 const media = "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:7\n#EXTINF:6,\nseg7.ts\n#EXTINF:6,\nseg8.ts\n"
 
 func TestCheckFollowsTheFirstVariantAndAsksForTheLiveEdge(t *testing.T) {
@@ -51,8 +53,8 @@ func TestCheckFollowsTheFirstVariantAndAsksForTheLiveEdge(t *testing.T) {
 }
 
 func TestCheckReportsAMissingSegmentWithoutFailing(t *testing.T) {
-	srv := server(t, map[string]func(http.ResponseWriter){"/index.m3u8": body(media)})
-	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+"/index.m3u8", true)
+	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
+	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,8 +64,8 @@ func TestCheckReportsAMissingSegmentWithoutFailing(t *testing.T) {
 }
 
 func TestCheckWithoutTheSegment(t *testing.T) {
-	srv := server(t, map[string]func(http.ResponseWriter){"/index.m3u8": body(media)})
-	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+"/index.m3u8", false)
+	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
+	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,5 +87,37 @@ func TestCheckFailures(t *testing.T) {
 				t.Fatalf("want a FetchError, got %v", err)
 			}
 		})
+	}
+}
+
+func TestCheckAllReadsEveryVariantAndReportsTheBrokenOne(t *testing.T) {
+	srv := server(t, map[string]func(http.ResponseWriter){
+		"/live/master.m3u8": body("#EXTM3U\n" +
+			"#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nlow/index.m3u8\n" +
+			"#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720\nhigh/index.m3u8\n"),
+		"/live/low/index.m3u8": body(media),
+		"/live/low/seg8.ts":    body("segment"),
+		// high/index.m3u8 is missing: that variant must fail on its own.
+	})
+	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+"/live/master.m3u8", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vs) != 2 {
+		t.Fatalf("got %d variants", len(vs))
+	}
+	if vs[0].Err != nil || vs[0].Result.MediaSequence != 7 || vs[0].Variant.Bandwidth != 800000 {
+		t.Errorf("low: %+v %v", vs[0].Variant, vs[0].Err)
+	}
+	if _, ok := errors.AsType[*FetchError](vs[1].Err); !ok || vs[1].Variant.Resolution != "1280x720" {
+		t.Errorf("high: want a FetchError, got %+v %v", vs[1].Variant, vs[1].Err)
+	}
+}
+
+func TestCheckAllOnAMediaPlaylistIsOneVariant(t *testing.T) {
+	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
+	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+indexPath, false)
+	if err != nil || len(vs) != 1 || vs[0].Variant.URI != srv.URL+indexPath || vs[0].Err != nil {
+		t.Fatalf("got %+v, %v", vs, err)
 	}
 }

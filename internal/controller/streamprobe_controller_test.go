@@ -18,15 +18,32 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	streamingv1alpha1 "github.com/Allan-Nava/streamprobe-operator/api/v1alpha1"
+	"github.com/Allan-Nava/streamprobe-operator/internal/hls"
 	"github.com/Allan-Nava/streamprobe-operator/internal/probe"
 )
 
 // fakeProber returns the result it holds, and counts the checks.
 type fakeProber struct {
-	mu     sync.Mutex
-	result *probe.Result
-	err    error
-	calls  int
+	mu       sync.Mutex
+	result   *probe.Result
+	err      error
+	variants []probe.VariantResult // returned by CheckAll
+	calls    int
+}
+
+func (f *fakeProber) CheckAll(_ context.Context, _ string, _ bool) ([]probe.VariantResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	out := make([]probe.VariantResult, len(f.variants))
+	for i, v := range f.variants {
+		out[i] = v
+		if v.Result != nil {
+			r := *v.Result
+			out[i].Result = &r
+		}
+	}
+	return out, f.err
 }
 
 func (f *fakeProber) Check(_ context.Context, _ string, _ bool) (*probe.Result, error) {
@@ -175,6 +192,43 @@ var _ = Describe("StreamProbe controller", func() {
 		reconcile()
 		Expect(prober.calls).To(Equal(2))
 		Expect(get().Status.ObservedGeneration).To(Equal(get().Generation))
+	})
+
+	It("with variants: All, is as bad as its worst variant, and says which", func() {
+		low := probe.VariantResult{Variant: hls.Variant{URI: "low.m3u8", Bandwidth: 800000, Resolution: "640x360"},
+			Result: &probe.Result{TargetDuration: 6, MediaSequence: 100, Segments: 3, SegmentURL: "l", SegmentStatus: 200}}
+		high := probe.VariantResult{Variant: hls.Variant{URI: "high.m3u8", Bandwidth: 2400000, Resolution: "1280x720"},
+			Result: &probe.Result{TargetDuration: 6, MediaSequence: 100, Segments: 3, SegmentURL: "h", SegmentStatus: 200}}
+		prober.variants = []probe.VariantResult{low, high}
+		sp := get()
+		sp.Spec.Variants = streamingv1alpha1.VariantsAll
+		Expect(k8sClient.Update(ctx, sp)).To(Succeed())
+
+		reconcile()
+		Expect(ready().Reason).To(Equal(streamingv1alpha1.ReasonLive))
+		Expect(ready().Message).To(Equal("2 of 2 variants live"))
+		Expect(get().Status.Variants).To(HaveLen(2))
+
+		// low keeps moving, high stops: the stream is Stale, because of high.
+		clock = clock.Add(30 * time.Second)
+		prober.variants[0].Result.MediaSequence = 105
+		reconcile()
+		Expect(ready().Reason).To(Equal(streamingv1alpha1.ReasonStale))
+		Expect(ready().Message).To(HavePrefix("variant high.m3u8 (1280x720, 2400 kb/s): the live edge has been at segment 102"))
+		Expect(ready().Message).To(HaveSuffix("1 of 2 variants live"))
+		lines := get().Status.Variants
+		Expect(lines[0].Reason).To(Equal(streamingv1alpha1.ReasonLive))
+		Expect(lines[1].Reason).To(Equal(streamingv1alpha1.ReasonStale))
+		Expect(testutil.ToFloat64(variantReadyGauge.WithLabelValues(testNamespace, name, "high.m3u8"))).To(BeZero())
+
+		// Back to First: the lines and their series go.
+		sp = get()
+		sp.Spec.Variants = streamingv1alpha1.VariantsFirst
+		Expect(k8sClient.Update(ctx, sp)).To(Succeed())
+		clock = clock.Add(time.Second)
+		reconcile()
+		Expect(get().Status.Variants).To(BeEmpty())
+		Expect(testutil.CollectAndCount(variantReadyGauge)).To(BeZero())
 	})
 
 	It("forgets the metrics of a deleted probe", func() {

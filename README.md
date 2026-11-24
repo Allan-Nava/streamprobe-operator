@@ -73,7 +73,14 @@ spec:
   timeout: 10s         # default 10s, for the whole check
   staleAfter: 1m       # optional; default three target durations
   checkSegment: true   # default true
+  variants: First      # default First; All checks every variant of a multivariant playlist
 ```
+
+With `variants: All` every variant of a multivariant playlist is checked and gets a line in
+`status.variants` (URI, bandwidth, resolution, reason, live edge); Ready is the worst variant's,
+and its message names it: `variant high.m3u8 (1280x720, 2400 kb/s): the live edge has been at
+segment 102 for 30s (limit 18s); 1 of 2 variants live`. A variant that stalls while the others
+move is the classic encoder fault, and with `First` it goes unseen.
 
 The status keeps `liveEdge`, `mediaSequence`, `targetDurationSeconds`, `lastAdvanceTime`,
 `lastCheckTime`, `playlistURL` (the variant actually read), `playlistLatencyMilliseconds`,
@@ -90,6 +97,7 @@ On the manager's metrics endpoint, labelled by `namespace` and `name`:
 | `streamprobe_seconds_since_advance` | gauge | seconds since the live edge last moved |
 | `streamprobe_playlist_fetch_seconds` | histogram | time to fetch the media playlist |
 | `streamprobe_checks_total` | counter | checks, by reason (also labelled `reason`) |
+| `streamprobe_variant_ready` | gauge | 1 when a variant is live (also labelled `variant`); with `variants: All` only |
 
 The series of a deleted probe are dropped.
 

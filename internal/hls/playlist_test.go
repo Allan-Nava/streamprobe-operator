@@ -40,11 +40,26 @@ func TestParseMultivariantPlaylist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !p.Multivariant || len(p.Variants) != 2 || p.Variants[0] != "low/index.m3u8" {
-		t.Fatalf("got multivariant=%v variants=%v", p.Multivariant, p.Variants)
+	want := []Variant{
+		{URI: "low/index.m3u8", Bandwidth: 800000, Resolution: "640x360"},
+		{URI: "high/index.m3u8", Bandwidth: 2400000, Resolution: "1280x720"},
+	}
+	if !p.Multivariant || len(p.Variants) != 2 || p.Variants[0] != want[0] || p.Variants[1] != want[1] {
+		t.Fatalf("got multivariant=%v variants=%+v", p.Multivariant, p.Variants)
 	}
 	if len(p.Segments) != 0 {
 		t.Fatalf("a multivariant playlist has no segments, got %v", p.Segments)
+	}
+}
+
+func TestParseStreamInfWithQuotedCommas(t *testing.T) {
+	p, err := Parse(strings.NewReader("#EXTM3U\n" +
+		"#EXT-X-STREAM-INF:CODECS=\"avc1.4d401f,mp4a.40.2\",BANDWIDTH=1500000,RESOLUTION=960x540\nmid.m3u8\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Variants) != 1 || p.Variants[0] != (Variant{URI: "mid.m3u8", Bandwidth: 1500000, Resolution: "960x540"}) {
+		t.Fatalf("got %+v", p.Variants)
 	}
 }
 
