@@ -178,14 +178,15 @@ UserAgent string `json:"userAgent,omitempty"`</code></pre>
   </ol>
 
   <h2 id="recipe-rbac">8. Recipe: let the controller read something new</h2>
-  <p>The operator may only do what its ServiceAccount is allowed to. Say it must read Secrets (for a token in the spec):</p>
+  <p>The operator may only do what its ServiceAccount is allowed to. This is how it got to read the Secret of <code>spec.headersFrom</code> (SP-13):</p>
   <ol>
-    <li>Above <code>Reconcile</code>, add a marker:
-<pre tabindex="0"><code>// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch</code></pre>
+    <li>Above <code>Reconcile</code>, add a marker with the fewest verbs that do the job:
+<pre tabindex="0"><code>// +kubebuilder:rbac:groups="",resources=secrets,verbs=get</code></pre>
       <code>groups=""</code> is the core group (Pods, Secrets, ConfigMaps live there).</li>
     <li><code>make manifests</code>: the permission appears in <code>config/rbac/role.yaml</code>.</li>
     <li>Use it in the code. Never write a Role by hand for the operator: the next <code>make manifests</code> would not know about it.</li>
   </ol>
+  <p><b>Why only <code>get</code>, and the trap behind it.</b> The controller's normal client (<code>r.Get</code>) reads from the manager's <b>cache</b>, and a cache of a kind is filled by listing and watching <em>every</em> object of that kind in the cluster. Reading one Secret through it needs <code>list</code> and <code>watch</code> on all Secrets, and keeps all of them in the operator's memory: a much bigger permission and a much bigger target than the job needs. So the Secret is read with <code>mgr.GetAPIReader()</code>, a client that goes straight to the API server, one object at a time, with <code>get</code> alone. It also reads the Secret fresh at every check, so a rotated token is used from the next check without a watch. Rule of thumb: the cache for the objects you reconcile, the API reader for the odd sensitive one.</p>
 
   <h2 id="make">9. The make targets you will use</h2>
   <p><code>make help</code> lists them all. The ones that matter:</p>

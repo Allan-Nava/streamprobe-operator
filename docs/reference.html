@@ -70,6 +70,8 @@
           <tr><td><code>timeout</code></td><td>duration</td><td><code>10s</code></td><td>Bounds one whole check: playlist, variant and segment.</td></tr>
           <tr><td><code>staleAfter</code></td><td>duration</td><td>three target durations</td><td>How long the live edge may stand still before the stream is <code>Stale</code>. Without a target duration in the playlist: three intervals.</td></tr>
           <tr><td><code>checkSegment</code></td><td>bool</td><td><code>true</code></td><td>Ask the origin for the live-edge segment on every check (first 1&nbsp;KB only).</td></tr>
+          <tr><td><code>headersFrom.secretName</code></td><td>string</td><td></td><td>A Secret in the StreamProbe's namespace whose keys are request header names and whose values are their values (e.g. <code>Authorization: Bearer …</code>), for an origin behind a token. Read at every check, so a rotated token is used from the next one. Missing, empty, a key that is not a header name or a value with a line break: Ready=False, reason <code>InvalidConfig</code>, and the stream is not contacted.</td></tr>
+          <tr><td><code>headersFrom.allHosts</code></td><td>bool</td><td><code>false</code></td><td>Send the headers to every host the check reaches. Off, they go only to the <code>url</code>'s host, so the token does not leak to a CDN serving the variants or segments.</td></tr>
           <tr><td><code>variants</code></td><td><code>First</code> or <code>All</code></td><td><code>First</code></td><td>Which variants of a multivariant playlist are checked. <code>First</code>: the first listed. <code>All</code>: every variant, each with a line in <code>status.variants</code>; Ready is the worst of them, and its message names the variant and counts the live ones. On a media playlist both mean the URL.</td></tr>
         </tbody>
       </table>
@@ -112,6 +114,7 @@
           <tr><td><code>Stale</code></td><td>False</td><td>The live edge has not moved for longer than <code>staleAfter</code>.</td></tr>
           <tr><td><code>SegmentFailed</code></td><td>False</td><td>The live-edge segment answered outside 2xx, or not at all.</td></tr>
           <tr><td><code>Live</code></td><td>True</td><td>Otherwise.</td></tr>
+          <tr><td><code>InvalidConfig</code></td><td>False</td><td>The probe cannot be made as configured: its <code>headersFrom</code> Secret is missing, unreadable or invalid. Checked before anything else; the stream is not contacted.</td></tr>
         </tbody>
       </table>
     </div>
@@ -161,6 +164,7 @@ kubectl get sp -o custom-columns=NAME:.metadata.name,REASON:.status.conditions[0
         <tbody>
           <tr><td><code>streamprobes</code></td><td>get, list, watch</td><td>read the probes</td></tr>
           <tr><td><code>streamprobes/status</code></td><td>get, update, patch</td><td>write what a check found</td></tr>
+          <tr><td><code>secrets</code></td><td>get</td><td>the Secret named by <code>headersFrom</code>, read one at a time from the API server (no cache, so no list or watch on all Secrets)</td></tr>
           <tr><td><code>events.k8s.io/events</code></td><td>create, patch</td><td>one event per change of verdict</td></tr>
         </tbody>
       </table>

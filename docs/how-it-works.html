@@ -127,11 +127,12 @@ Interval metav1.Duration `json:"interval,omitzero"`</code></pre>
   <p>controller-runtime already serves <code>/metrics</code> (work-queue depth, reconcile durations, API client latency). streamprobe adds its own gauges, histogram and counter to the same registry, one series per probe. A deleted probe's series are dropped by the reconcile that finds it gone, so no finalizer is needed: a finalizer is for state <em>outside</em> the operator (a cloud resource) that must be cleaned up before the object may disappear.</p>
 
   <h2 id="rbac">8. Permissions from markers</h2>
-  <p>The operator's ServiceAccount can do exactly what three markers on the controller say, and <code>make manifests</code> writes the ClusterRole from them:</p>
+  <p>The operator's ServiceAccount can do exactly what four markers on the controller say, and <code>make manifests</code> writes the ClusterRole from them:</p>
 <pre tabindex="0"><code>// +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
 // +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch</code></pre>
-  <p>Read the probes, write their status, write events. It cannot edit a spec, and it cannot touch anything else in the cluster. A new need is a new marker, never a hand-written Role.</p>
+  <p>Read the probes, read one Secret by name when a probe asks for its headers, write their status, write events. It cannot edit a spec, list Secrets or touch anything else in the cluster. The Secret is read with the manager's <em>API reader</em>, not its cached client: a cached read would need <code>list</code> and <code>watch</code> on every Secret of the cluster (<a href="kubebuilder.html#recipe-rbac">why</a>). A new need is a new marker, never a hand-written Role.</p>
 
   <h2 id="tests">9. Testing without a cluster, then with one</h2>
   <ul>

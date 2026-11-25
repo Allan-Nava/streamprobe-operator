@@ -23,6 +23,9 @@ const (
 	ReasonFetchFailed   = "FetchFailed"
 	ReasonSegmentFailed = "SegmentFailed"
 	ReasonPending       = "Pending"
+	// ReasonInvalidConfig: the probe cannot be made as configured (its headersFrom Secret
+	// is missing or unreadable); the stream is not contacted.
+	ReasonInvalidConfig = "InvalidConfig"
 )
 
 // Which variants of a multivariant playlist are checked (spec.variants).
@@ -69,6 +72,28 @@ type StreamProbeSpec struct {
 	// +kubebuilder:default=First
 	// +optional
 	Variants string `json:"variants,omitempty"`
+
+	// headersFrom sends request headers taken from a Secret, for an origin behind a token:
+	// never the token in the spec.
+	// +optional
+	HeadersFrom *HeadersFrom `json:"headersFrom,omitempty"`
+}
+
+// HeadersFrom names the Secret whose keys are header names and whose values are their
+// values, e.g. a key "Authorization" with the value "Bearer …".
+type HeadersFrom struct {
+	// secretName is a Secret in the StreamProbe's own namespace. The operator reads it at
+	// every check (a rotated token is used from the next one) and needs only get on Secrets.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +required
+	SecretName string `json:"secretName"`
+
+	// allHosts sends the headers to every host the check reaches. Off (the default), they go
+	// only to the url's host, so a token for the origin does not leak to a CDN that serves
+	// the variants or the segments.
+	// +optional
+	AllHosts bool `json:"allHosts,omitempty"`
 }
 
 // VariantStatus is one variant, as the last check found it (spec.variants: All).

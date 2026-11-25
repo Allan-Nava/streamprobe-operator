@@ -4,8 +4,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,11 +40,16 @@ type StreamProbeReconciler struct {
 	Scheme   *runtime.Scheme
 	Prober   probe.Prober
 	Recorder EventRecorder
+	// APIReader reads headersFrom Secrets straight from the API server, not from the
+	// manager's cache: a cached read would need list and watch on every Secret of the
+	// cluster, and keep them all in memory. Nil means the Client.
+	APIReader client.Reader
 	// Now is the clock; tests set it. Nil means time.Now.
 	Now func() time.Time
 }
 
 // +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
 // +kubebuilder:rbac:groups=streaming.allan-nava.github.io,resources=streamprobes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
@@ -77,13 +84,18 @@ func (r *StreamProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		checkErr error
 		variants []probe.VariantResult
 	)
-	if all {
-		variants, checkErr = r.Prober.CheckAll(checkCtx, sp.Spec.URL, checkSegment(&sp))
+	opts, cfgErr := r.options(checkCtx, &sp)
+	switch {
+	case cfgErr != nil:
+		// The stream is not contacted: a probe without its token would only report a 401.
+		checkErr = cfgErr
+	case all:
+		variants, checkErr = r.Prober.CheckAll(checkCtx, sp.Spec.URL, opts)
 		if checkErr == nil && len(variants) > 0 {
 			res, checkErr = variants[0].Result, variants[0].Err
 		}
-	} else {
-		res, checkErr = r.Prober.Check(checkCtx, sp.Spec.URL, checkSegment(&sp))
+	default:
+		res, checkErr = r.Prober.Check(checkCtx, sp.Spec.URL, opts)
 	}
 	cancel()
 	if res == nil && checkErr == nil {
@@ -136,6 +148,33 @@ func (r *StreamProbeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	r.record(&sp, good, v, now)
 	recordVariants(&sp)
 	return ctrl.Result{RequeueAfter: every}, nil
+}
+
+// options builds the check's Options: checkSegment, and the headers of spec.headersFrom read
+// from its Secret. An error is a configError: the probe cannot be made as configured.
+func (r *StreamProbeReconciler) options(ctx context.Context, sp *streamingv1alpha1.StreamProbe) (probe.Options, error) {
+	opts := probe.Options{CheckSegment: checkSegment(sp)}
+	hf := sp.Spec.HeadersFrom
+	if hf == nil {
+		return opts, nil
+	}
+	reader := r.APIReader
+	if reader == nil {
+		reader = r.Client
+	}
+	var secret corev1.Secret
+	if err := reader.Get(ctx, client.ObjectKey{Namespace: sp.Namespace, Name: hf.SecretName}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return opts, &configError{fmt.Sprintf("headersFrom: Secret %q not found in namespace %s", hf.SecretName, sp.Namespace)}
+		}
+		return opts, &configError{fmt.Sprintf("headersFrom: cannot read Secret %q: %v", hf.SecretName, err)}
+	}
+	headers, err := headersFromSecret(&secret)
+	if err != nil {
+		return opts, err
+	}
+	opts.Headers, opts.AllHosts = headers, hf.AllHosts
+	return opts, nil
 }
 
 func (r *StreamProbeReconciler) record(sp *streamingv1alpha1.StreamProbe, res *probe.Result, v verdict, now time.Time) {

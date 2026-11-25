@@ -4,12 +4,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,12 +31,14 @@ type fakeProber struct {
 	err      error
 	variants []probe.VariantResult // returned by CheckAll
 	calls    int
+	lastOpts probe.Options
 }
 
-func (f *fakeProber) CheckAll(_ context.Context, _ string, _ bool) ([]probe.VariantResult, error) {
+func (f *fakeProber) CheckAll(_ context.Context, _ string, opts probe.Options) ([]probe.VariantResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
+	f.lastOpts = opts
 	out := make([]probe.VariantResult, len(f.variants))
 	for i, v := range f.variants {
 		out[i] = v
@@ -46,10 +50,11 @@ func (f *fakeProber) CheckAll(_ context.Context, _ string, _ bool) ([]probe.Vari
 	return out, f.err
 }
 
-func (f *fakeProber) Check(_ context.Context, _ string, _ bool) (*probe.Result, error) {
+func (f *fakeProber) Check(_ context.Context, _ string, opts probe.Options) (*probe.Result, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
+	f.lastOpts = opts
 	if f.result == nil {
 		return nil, f.err
 	}
@@ -229,6 +234,41 @@ var _ = Describe("StreamProbe controller", func() {
 		reconcile()
 		Expect(get().Status.Variants).To(BeEmpty())
 		Expect(testutil.CollectAndCount(variantReadyGauge)).To(BeZero())
+	})
+
+	It("sends the headers of its Secret, reads it again at every check, and is InvalidConfig without it", func() {
+		sp := get()
+		sp.Spec.HeadersFrom = &streamingv1alpha1.HeadersFrom{SecretName: "origin-token"}
+		Expect(k8sClient.Update(ctx, sp)).To(Succeed())
+
+		// No Secret yet: InvalidConfig, and the stream is not contacted.
+		reconcile()
+		Expect(prober.calls).To(BeZero())
+		Expect(ready().Reason).To(Equal(streamingv1alpha1.ReasonInvalidConfig))
+		Expect(ready().Message).To(ContainSubstring(`Secret "origin-token" not found`))
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "origin-token", Namespace: testNamespace},
+			Data:       map[string][]byte{"Authorization": []byte("Bearer one")},
+		}
+		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, secret) })
+		clock = clock.Add(30 * time.Second)
+		reconcile()
+		Expect(prober.calls).To(Equal(1))
+		Expect(prober.lastOpts.Headers.Get("Authorization")).To(Equal("Bearer one"))
+		Expect(prober.lastOpts.AllHosts).To(BeFalse())
+		Expect(ready().Reason).To(Equal(streamingv1alpha1.ReasonLive))
+
+		// A rotated token is used at the next check, with no restart and no watch.
+		secret.Data["Authorization"] = []byte("Bearer two")
+		Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+		clock = clock.Add(30 * time.Second)
+		reconcile()
+		Expect(prober.lastOpts.Headers.Get("Authorization")).To(Equal("Bearer two"))
+
+		// The value never reaches the status.
+		Expect(fmt.Sprintf("%+v", get().Status)).NotTo(ContainSubstring("Bearer"))
 	})
 
 	It("forgets the metrics of a deleted probe", func() {

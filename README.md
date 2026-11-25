@@ -78,7 +78,18 @@ spec:
   staleAfter: 1m       # optional; default three target durations
   checkSegment: true   # default true
   variants: First      # default First; All checks every variant of a multivariant playlist
+  headersFrom:         # optional: request headers from a Secret in this namespace
+    secretName: origin-token   # e.g. a key "Authorization" with "Bearer …"
+    allHosts: false            # default: headers go to the url's host only
 ```
+
+With `headersFrom`, every key of the named Secret is sent as a request header: the token
+stays in a Secret, never in the spec. The operator reads it straight from the API server at
+every check, with only `get` on Secrets (a cached read would need `list` and `watch` on all
+of them), so a rotated token is used from the next check. The headers go only to the URL's
+host unless `allHosts: true`, so a token for the origin does not reach a CDN. A missing or
+invalid Secret is `Ready=False`, reason `InvalidConfig`; its values never reach the status,
+the events or the logs.
 
 With `variants: All` every variant of a multivariant playlist is checked and gets a line in
 `status.variants` (URI, bandwidth, resolution, reason, live edge); Ready is the worst variant's,

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"time"
 
 	"github.com/Allan-Nava/streamprobe-operator/internal/hls"
@@ -46,14 +47,28 @@ type VariantResult struct {
 	Err     error
 }
 
+// Options are how one check is made.
+type Options struct {
+	// CheckSegment asks for the live-edge segment of each media playlist read.
+	CheckSegment bool
+	// Headers are sent with every request to the URL's own host (SP-13): typically an
+	// Authorization header from a Secret. Never logged, never in a Result.
+	Headers http.Header
+	// AllHosts sends Headers to every host the check reaches (variants or segments on a CDN),
+	// not only the URL's. Off: a token for the origin does not leak to another host.
+	AllHosts bool
+
+	host string // the URL's host, set by the check
+}
+
 // Prober checks a stream. The controller holds one; tests replace it.
 type Prober interface {
 	// Check reads the URL, or the first variant of a multivariant playlist.
-	Check(ctx context.Context, url string, checkSegment bool) (*Result, error)
+	Check(ctx context.Context, url string, opts Options) (*Result, error)
 	// CheckAll reads every variant of a multivariant playlist (SP-12), one after the other within
 	// the same deadline. The error is for the multivariant playlist itself; a variant that fails
 	// carries its own Err.
-	CheckAll(ctx context.Context, url string, checkSegment bool) ([]VariantResult, error)
+	CheckAll(ctx context.Context, url string, opts Options) ([]VariantResult, error)
 }
 
 // HTTPProber checks over HTTP with the client it is given; the deadline comes from the context.
@@ -77,8 +92,8 @@ var ErrNoSegments = errors.New("the media playlist lists no segment")
 // Check fetches the playlist and, when checkSegment is true, the live-edge segment. A playlist
 // that cannot be fetched or parsed is an error; a segment that answers with an error status is
 // not: it is reported in the result, for the controller to judge.
-func (p *HTTPProber) Check(ctx context.Context, url string, checkSegment bool) (*Result, error) {
-	variants, err := p.check(ctx, url, checkSegment, false)
+func (p *HTTPProber) Check(ctx context.Context, url string, opts Options) (*Result, error) {
+	variants, err := p.check(ctx, url, opts, false)
 	if err != nil {
 		return nil, err
 	}
@@ -86,17 +101,20 @@ func (p *HTTPProber) Check(ctx context.Context, url string, checkSegment bool) (
 }
 
 // CheckAll is Check for every variant.
-func (p *HTTPProber) CheckAll(ctx context.Context, url string, checkSegment bool) ([]VariantResult, error) {
-	return p.check(ctx, url, checkSegment, true)
+func (p *HTTPProber) CheckAll(ctx context.Context, url string, opts Options) ([]VariantResult, error) {
+	return p.check(ctx, url, opts, true)
 }
 
-func (p *HTTPProber) check(ctx context.Context, url string, checkSegment, all bool) ([]VariantResult, error) {
-	pl, latency, err := p.playlist(ctx, url)
+func (p *HTTPProber) check(ctx context.Context, url string, opts Options, all bool) ([]VariantResult, error) {
+	if u, err := neturl.Parse(url); err == nil {
+		opts.host = u.Host
+	}
+	pl, latency, err := p.playlist(ctx, url, opts)
 	if err != nil {
 		return nil, &FetchError{URL: url, Err: err}
 	}
 	if !pl.Multivariant {
-		r, err := p.media(ctx, url, pl, latency, checkSegment)
+		r, err := p.media(ctx, url, pl, latency, opts)
 		return []VariantResult{{Variant: hls.Variant{URI: url}, Result: r, Err: err}}, nil
 	}
 	if len(pl.Variants) == 0 {
@@ -109,30 +127,30 @@ func (p *HTTPProber) check(ctx context.Context, url string, checkSegment, all bo
 	out := make([]VariantResult, 0, len(variants))
 	for _, v := range variants {
 		vr := VariantResult{Variant: v}
-		vr.Result, vr.Err = p.variant(ctx, url, v.URI, checkSegment)
+		vr.Result, vr.Err = p.variant(ctx, url, v.URI, opts)
 		out = append(out, vr)
 	}
 	return out, nil
 }
 
 // variant reads one variant's media playlist and its live-edge segment.
-func (p *HTTPProber) variant(ctx context.Context, base, uri string, checkSegment bool) (*Result, error) {
+func (p *HTTPProber) variant(ctx context.Context, base, uri string, opts Options) (*Result, error) {
 	playlistURL, err := hls.Resolve(base, uri)
 	if err != nil {
 		return nil, &FetchError{URL: base, Err: err}
 	}
-	pl, latency, err := p.playlist(ctx, playlistURL)
+	pl, latency, err := p.playlist(ctx, playlistURL, opts)
 	if err != nil {
 		return nil, &FetchError{URL: playlistURL, Err: err}
 	}
 	if pl.Multivariant {
 		return nil, &FetchError{URL: playlistURL, Err: errors.New("a variant is itself a multivariant playlist")}
 	}
-	return p.media(ctx, playlistURL, pl, latency, checkSegment)
+	return p.media(ctx, playlistURL, pl, latency, opts)
 }
 
 // media turns a fetched media playlist into a Result, asking for its live-edge segment.
-func (p *HTTPProber) media(ctx context.Context, playlistURL string, pl *hls.Playlist, latency time.Duration, checkSegment bool) (*Result, error) {
+func (p *HTTPProber) media(ctx context.Context, playlistURL string, pl *hls.Playlist, latency time.Duration, opts Options) (*Result, error) {
 	r := &Result{
 		PlaylistURL:     playlistURL,
 		TargetDuration:  pl.TargetDuration,
@@ -144,18 +162,18 @@ func (p *HTTPProber) media(ctx context.Context, playlistURL string, pl *hls.Play
 	if len(pl.Segments) == 0 {
 		return r, &FetchError{URL: playlistURL, Err: ErrNoSegments}
 	}
-	if !checkSegment {
+	if !opts.CheckSegment {
 		return r, nil
 	}
 	var err error
 	if r.SegmentURL, err = hls.Resolve(playlistURL, pl.Segments[len(pl.Segments)-1]); err != nil {
 		return r, &FetchError{URL: playlistURL, Err: err}
 	}
-	r.SegmentStatus, r.SegmentLatency = p.segment(ctx, r.SegmentURL)
+	r.SegmentStatus, r.SegmentLatency = p.segment(ctx, r.SegmentURL, opts)
 	return r, nil
 }
 
-func (p *HTTPProber) do(ctx context.Context, method, url string) (*http.Response, time.Duration, error) {
+func (p *HTTPProber) do(ctx context.Context, method, url string, opts Options) (*http.Response, time.Duration, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, 0, err
@@ -163,13 +181,20 @@ func (p *HTTPProber) do(ctx context.Context, method, url string) (*http.Response
 	if p.UserAgent != "" {
 		req.Header.Set("User-Agent", p.UserAgent)
 	}
+	if len(opts.Headers) > 0 && (opts.AllHosts || req.URL.Host == opts.host) {
+		for k, vs := range opts.Headers {
+			for _, v := range vs {
+				req.Header.Add(k, v)
+			}
+		}
+	}
 	start := time.Now()
 	res, err := p.client().Do(req)
 	return res, time.Since(start), err
 }
 
-func (p *HTTPProber) playlist(ctx context.Context, url string) (*hls.Playlist, time.Duration, error) {
-	res, latency, err := p.do(ctx, http.MethodGet, url)
+func (p *HTTPProber) playlist(ctx context.Context, url string, opts Options) (*hls.Playlist, time.Duration, error) {
+	res, latency, err := p.do(ctx, http.MethodGet, url, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -183,8 +208,8 @@ func (p *HTTPProber) playlist(ctx context.Context, url string) (*hls.Playlist, t
 
 // segment asks for the segment and reads only its first bytes: the point is whether the origin
 // serves it, not to download a whole segment on every check. A transport error is status 0.
-func (p *HTTPProber) segment(ctx context.Context, url string) (int, time.Duration) {
-	res, latency, err := p.do(ctx, http.MethodGet, url)
+func (p *HTTPProber) segment(ctx context.Context, url string, opts Options) (int, time.Duration) {
+	res, latency, err := p.do(ctx, http.MethodGet, url, opts)
 	if err != nil {
 		return 0, latency
 	}

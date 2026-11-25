@@ -5,6 +5,7 @@ package probe
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -37,7 +38,7 @@ func TestCheckFollowsTheFirstVariantAndAsksForTheLiveEdge(t *testing.T) {
 		"/live/low/index.m3u8": body(media),
 		"/live/low/seg8.ts":    body("segment"),
 	})
-	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+"/live/master.m3u8", true)
+	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+"/live/master.m3u8", Options{CheckSegment: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +55,7 @@ func TestCheckFollowsTheFirstVariantAndAsksForTheLiveEdge(t *testing.T) {
 
 func TestCheckReportsAMissingSegmentWithoutFailing(t *testing.T) {
 	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
-	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, true)
+	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, Options{CheckSegment: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +66,7 @@ func TestCheckReportsAMissingSegmentWithoutFailing(t *testing.T) {
 
 func TestCheckWithoutTheSegment(t *testing.T) {
 	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
-	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, false)
+	r, err := (&HTTPProber{}).Check(context.Background(), srv.URL+indexPath, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +83,7 @@ func TestCheckFailures(t *testing.T) {
 	})
 	for _, path := range []string{"/html.m3u8", "/empty.m3u8", "/boom.m3u8", "/missing.m3u8"} {
 		t.Run(path, func(t *testing.T) {
-			_, err := (&HTTPProber{}).Check(context.Background(), srv.URL+path, true)
+			_, err := (&HTTPProber{}).Check(context.Background(), srv.URL+path, Options{CheckSegment: true})
 			if _, ok := errors.AsType[*FetchError](err); !ok {
 				t.Fatalf("want a FetchError, got %v", err)
 			}
@@ -99,7 +100,7 @@ func TestCheckAllReadsEveryVariantAndReportsTheBrokenOne(t *testing.T) {
 		"/live/low/seg8.ts":    body("segment"),
 		// high/index.m3u8 is missing: that variant must fail on its own.
 	})
-	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+"/live/master.m3u8", true)
+	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+"/live/master.m3u8", Options{CheckSegment: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,8 +117,39 @@ func TestCheckAllReadsEveryVariantAndReportsTheBrokenOne(t *testing.T) {
 
 func TestCheckAllOnAMediaPlaylistIsOneVariant(t *testing.T) {
 	srv := server(t, map[string]func(http.ResponseWriter){indexPath: body(media)})
-	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+indexPath, false)
+	vs, err := (&HTTPProber{}).CheckAll(context.Background(), srv.URL+indexPath, Options{})
 	if err != nil || len(vs) != 1 || vs[0].Variant.URI != srv.URL+indexPath || vs[0].Err != nil {
 		t.Fatalf("got %+v, %v", vs, err)
+	}
+}
+
+func TestHeadersGoToTheURLsHostOnly(t *testing.T) {
+	var seen []string
+	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, "cdn:"+r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte("segment"))
+	}))
+	t.Cleanup(cdn.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, "origin:"+r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:6,\n" + cdn.URL + "/seg1.ts\n"))
+	}))
+	t.Cleanup(origin.Close)
+	headers := http.Header{"Authorization": {"Bearer s3cret"}}
+
+	seen = nil
+	if _, err := (&HTTPProber{}).Check(context.Background(), origin.URL+"/live.m3u8", Options{CheckSegment: true, Headers: headers}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"origin:Bearer s3cret", "cdn:"}; fmt.Sprint(seen) != fmt.Sprint(want) {
+		t.Errorf("got %v, want %v: the token must not reach the CDN", seen, want)
+	}
+
+	seen = nil
+	if _, err := (&HTTPProber{}).Check(context.Background(), origin.URL+"/live.m3u8", Options{CheckSegment: true, Headers: headers, AllHosts: true}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"origin:Bearer s3cret", "cdn:Bearer s3cret"}; fmt.Sprint(seen) != fmt.Sprint(want) {
+		t.Errorf("with AllHosts got %v, want %v", seen, want)
 	}
 }

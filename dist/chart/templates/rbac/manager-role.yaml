@@ -11,6 +11,12 @@ metadata:
   name: {{ include "streamprobe-operator.resourceName" (dict "suffix" "manager-role" "context" $) }}
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
   - events.k8s.io
   resources:
   - events

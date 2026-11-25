@@ -187,6 +187,8 @@ func main() {
 		Scheme:   mgr.GetScheme(),
 		Prober:   prober,
 		Recorder: mgr.GetEventRecorder("streamprobe-operator"),
+		// Secrets are read uncached: get on Secrets is all the RBAC the operator needs.
+		APIReader: mgr.GetAPIReader(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "streamprobe")
 		os.Exit(1)

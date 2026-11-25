@@ -37,6 +37,10 @@ func evaluate(sp *streamingv1alpha1.StreamProbe, res *probe.Result, checkErr err
 	t := metav1.NewTime(now)
 	st.LastCheckTime = &t
 
+	if ce, ok := errors.AsType[*configError](checkErr); ok {
+		st.LastError = ce.Error()
+		return st, verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonInvalidConfig, ce.Error()}
+	}
 	if checkErr != nil {
 		st.ConsecutiveFailures++
 		st.LastError = checkErr.Error()
@@ -100,6 +104,7 @@ func judge(sp *streamingv1alpha1.StreamProbe, prevEdge int64, prevAdvance *metav
 
 // severity orders the reasons, worst first, to pick the verdict of a stream from its variants.
 var severity = map[string]int{
+	streamingv1alpha1.ReasonInvalidConfig: 6,
 	streamingv1alpha1.ReasonFetchFailed:   5,
 	streamingv1alpha1.ReasonEnded:         4,
 	streamingv1alpha1.ReasonStale:         3,

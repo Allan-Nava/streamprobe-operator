@@ -86,8 +86,13 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   `First`), a line per variant in `status.variants` with bandwidth and resolution, Ready as the
   worst variant naming it, `streamprobe_variant_ready`; checked on the Unified Streaming demo
   (two variants, both live). Choosing some variants is SP-18. <!-- sp: prio=med size=M labels=probe,api ver=main -->
-- [ ] **SP-13 — Headers from a Secret**: `spec.headersFrom` (a Secret's keys as request
-  headers) for origins behind a token, never the token in the spec. <!-- sp: prio=med size=S labels=api,probe -->
+- [x] **SP-13 — Headers from a Secret**: `spec.headersFrom` (a Secret's keys as request
+  headers) for origins behind a token, never the token in the spec. Done: `headersFrom.secretName`
+  in the probe's namespace, read uncached with `mgr.GetAPIReader()` so RBAC is only `get` on
+  Secrets (a cached read needs list and watch on all of them) and a rotated token is used at
+  the next check; headers go to the URL's host only unless `allHosts`; a missing or invalid
+  Secret (bad key, line break in a value) is `InvalidConfig` and the stream is not contacted;
+  values never in the status, events or logs. <!-- sp: prio=med size=S labels=api,probe ver=main -->
 - [ ] **SP-14 — CEL validation**: `x-kubernetes-validations` on the spec (interval at least 5s,
   timeout shorter than interval, staleAfter longer than interval), so a bad value is refused by
   the API server instead of corrected in code. <!-- sp: prio=low size=S labels=api -->

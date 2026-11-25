@@ -4,7 +4,7 @@
 
 > This page is **generated** from [BACKLOG.md](BACKLOG.md), the single source of truth for planned work. Regenerate it with `npx backlogsync roadmap` after editing the backlog — CI fails when the two disagree.
 
-**18 items · 11 shipped · 7 open · 5 milestones.**
+**18 items · 12 shipped · 6 open · 5 milestones.**
 
 ## At a glance
 
@@ -13,7 +13,7 @@
 | **v0.1.0 — A probe that reconciles** | shipped | `##########` 100% | 0 | 5 |
 | **v0.2.0 — On a real cluster** | next | `########..` 75% | 1 | 3 |
 | **v0.3.0 — Seen from Grafana** | later | `##########` 100% | 0 | 2 |
-| **v0.4.0 — Probes that know more** | later | `##........` 20% | 4 | 1 |
+| **v0.4.0 — Probes that know more** | later | `####......` 40% | 3 | 2 |
 | **v0.5.0 — Probes as workloads** | later | `..........` 0% | 2 | 0 |
 
 ## v0.1.0 — A probe that reconciles
@@ -39,7 +39,7 @@
 ## v0.4.0 — Probes that know more
 
 - [x] **SP-12** — Every variant · med · M · probe, api · `main`
-- [ ] **SP-13** — Headers from a Secret · med · S · api, probe
+- [x] **SP-13** — Headers from a Secret · med · S · api, probe · `main`
 - [ ] **SP-14** — CEL validation · low · S · api
 - [ ] **SP-18** — Choose the variants · low · S · probe, api
 - [ ] **SP-15** — DASH · low · L · probe

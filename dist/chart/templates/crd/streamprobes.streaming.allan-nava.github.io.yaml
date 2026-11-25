@@ -72,6 +72,27 @@ spec:
                   checkSegment asks the origin for the live-edge segment on every check. A playlist can
                   keep moving while the segments it lists return errors.
                 type: boolean
+              headersFrom:
+                description: |-
+                  headersFrom sends request headers taken from a Secret, for an origin behind a token:
+                  never the token in the spec.
+                properties:
+                  allHosts:
+                    description: |-
+                      allHosts sends the headers to every host the check reaches. Off (the default), they go
+                      only to the url's host, so a token for the origin does not leak to a CDN that serves
+                      the variants or the segments.
+                    type: boolean
+                  secretName:
+                    description: |-
+                      secretName is a Secret in the StreamProbe's own namespace. The operator reads it at
+                      every check (a rotated token is used from the next one) and needs only get on Secrets.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - secretName
+                type: object
               interval:
                 default: 30s
                 description: interval is how often the stream is checked. At least
