@@ -116,9 +116,13 @@ type VariantStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
-	// liveEdge is the sequence number of the variant's last segment.
+	// A pointer, here and in StreamProbeStatus: 0 is a real edge, and an int64 with omitempty
+	// would drop it from the status (see liveEdge there).
+
+	// liveEdge is the sequence number of the variant's last segment; 0 for a stream that has
+	// just started.
 	// +optional
-	LiveEdge int64 `json:"liveEdge,omitempty"`
+	LiveEdge *int64 `json:"liveEdge,omitempty"`
 
 	// lastAdvanceTime is when the variant's live edge was last seen moving.
 	// +optional
@@ -145,15 +149,22 @@ type StreamProbeStatus struct {
 	// +optional
 	LastAdvanceTime *metav1.Time `json:"lastAdvanceTime,omitempty"`
 
+	// A pointer, like liveEdge below: 0 is the usual value of a stream that just started.
+
 	// mediaSequence is #EXT-X-MEDIA-SEQUENCE at the last successful check.
 	// +optional
-	MediaSequence int64 `json:"mediaSequence,omitempty"`
+	MediaSequence *int64 `json:"mediaSequence,omitempty"`
+
+	// A pointer: nil is "never measured", 0 is segment 0. As an int64 with omitempty, a probe
+	// whose first check saw segment 0 showed no edge at all, in the status and in the Edge
+	// column (found by the e2e test, whose fake origin starts at 0).
 
 	// liveEdge is the sequence number of the last segment listed: mediaSequence plus the
 	// segments minus one. It is what "the stream moves" is measured on, because an EVENT
-	// playlist keeps its media sequence and only appends segments.
+	// playlist keeps its media sequence and only appends segments. Absent until the first
+	// successful check; 0 for a stream that has just started.
 	// +optional
-	LiveEdge int64 `json:"liveEdge,omitempty"`
+	LiveEdge *int64 `json:"liveEdge,omitempty"`
 
 	// targetDurationSeconds is #EXT-X-TARGETDURATION at the last successful check.
 	// +optional

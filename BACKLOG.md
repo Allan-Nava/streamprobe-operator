@@ -72,6 +72,13 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   all, with what they pull along; `make test` and `make lint` green. `.github/dependabot.yml`
   proposes Go modules (Kubernetes ones grouped), actions and the Docker base images weekly, so
   they do not pile up again. <!-- sp: prio=high size=S labels=deps,ci ver=main -->
+- [x] **SP-21 — A live edge of 0 vanished from the status**: `liveEdge` and `mediaSequence` were
+  `int64` with `omitempty`, so a probe whose first check saw segment 0 (a stream that has just
+  started) had no edge in its status nor in the Edge column. The e2e test caught it on main
+  after #22, when the operator checked the fake origin within its first second. Done: both are
+  `*int64` (nil is "never measured"), `evaluate` reads the previous edge with `ptr.Deref(…, 0)`,
+  which also reads right a status written before the change, and a table row covers a first
+  check at segment 0. <!-- sp: prio=high size=S labels=api,controller ver=main -->
 
 ## v0.3.0 — Seen from Grafana <!-- ms: phase=later -->
 

@@ -214,7 +214,8 @@ spec:
                 description: |-
                   liveEdge is the sequence number of the last segment listed: mediaSequence plus the
                   segments minus one. It is what "the stream moves" is measured on, because an EVENT
-                  playlist keeps its media sequence and only appends segments.
+                  playlist keeps its media sequence and only appends segments. Absent until the first
+                  successful check; 0 for a stream that has just started.
                 format: int64
                 type: integer
               mediaSequence:
@@ -265,8 +266,9 @@ spec:
                       format: date-time
                       type: string
                     liveEdge:
-                      description: liveEdge is the sequence number of the variant's
-                        last segment.
+                      description: |-
+                        liveEdge is the sequence number of the variant's last segment; 0 for a stream that has
+                        just started.
                       format: int64
                       type: integer
                     message:

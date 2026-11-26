@@ -142,7 +142,7 @@ var _ = Describe("StreamProbe controller", func() {
 		Expect(res.RequeueAfter).To(Equal(30 * time.Second))
 		Expect(ready().Status).To(Equal(metav1.ConditionTrue))
 		Expect(ready().Reason).To(Equal(streamingv1alpha1.ReasonLive))
-		Expect(get().Status.LiveEdge).To(BeEquivalentTo(102))
+		Expect(get().Status.LiveEdge).To(HaveValue(BeEquivalentTo(102)))
 
 		// Before the interval: no check, a requeue for the rest of it.
 		clock = clock.Add(10 * time.Second)

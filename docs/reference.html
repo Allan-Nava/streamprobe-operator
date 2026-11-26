@@ -88,8 +88,8 @@
           <tr><td><code>observedGeneration</code></td><td>The spec generation this status was written for.</td></tr>
           <tr><td><code>lastCheckTime</code></td><td>When the stream was last checked.</td></tr>
           <tr><td><code>lastAdvanceTime</code></td><td>When the live edge was last seen moving.</td></tr>
-          <tr><td><code>liveEdge</code></td><td>Sequence number of the last segment: <code>mediaSequence</code> + segments − 1.</td></tr>
-          <tr><td><code>mediaSequence</code></td><td><code>#EXT-X-MEDIA-SEQUENCE</code> at the last good check.</td></tr>
+          <tr><td><code>liveEdge</code></td><td>Sequence number of the last segment: <code>mediaSequence</code> + segments − 1. Absent until the first good check; <code>0</code> for a stream that has just started.</td></tr>
+          <tr><td><code>mediaSequence</code></td><td><code>#EXT-X-MEDIA-SEQUENCE</code> at the last good check, <code>0</code> included.</td></tr>
           <tr><td><code>targetDurationSeconds</code></td><td><code>#EXT-X-TARGETDURATION</code> at the last good check.</td></tr>
           <tr><td><code>playlistURL</code></td><td>The media playlist actually read: <code>url</code>, or its first variant.</td></tr>
           <tr><td><code>playlistLatencyMilliseconds</code></td><td>Time to fetch that playlist.</td></tr>

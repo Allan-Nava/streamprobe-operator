@@ -8,6 +8,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	streamingv1alpha1 "github.com/Allan-Nava/streamprobe-operator/api/v1alpha1"
 	"github.com/Allan-Nava/streamprobe-operator/internal/probe"
@@ -57,10 +58,11 @@ func evaluate(sp *streamingv1alpha1.StreamProbe, res *probe.Result, checkErr err
 	st.TargetDurationSeconds = int32(res.TargetDuration)
 	st.PlaylistLatencyMilliseconds = res.PlaylistLatency.Milliseconds()
 	st.SegmentStatus = int32(res.SegmentStatus)
-	st.MediaSequence = res.MediaSequence
+	st.MediaSequence = new(res.MediaSequence)
 
-	var v verdict
-	st.LiveEdge, st.LastAdvanceTime, v = judge(sp, prev.LiveEdge, prev.LastAdvanceTime, res, now)
+	// Deref to 0: a status written before liveEdge was a pointer omitted an edge of 0.
+	edge, advance, v := judge(sp, ptr.Deref(prev.LiveEdge, 0), prev.LastAdvanceTime, res, now)
+	st.LiveEdge, st.LastAdvanceTime = new(edge), advance
 	return st, v
 }
 
@@ -136,7 +138,9 @@ func evaluateVariants(sp *streamingv1alpha1.StreamProbe, results []probe.Variant
 			v = verdict{metav1.ConditionFalse, streamingv1alpha1.ReasonFetchFailed, msg}
 			line.LiveEdge, line.LastAdvanceTime = old.LiveEdge, old.LastAdvanceTime
 		} else {
-			line.LiveEdge, line.LastAdvanceTime, v = judge(sp, old.LiveEdge, old.LastAdvanceTime, r.Result, now)
+			var edge int64
+			edge, line.LastAdvanceTime, v = judge(sp, ptr.Deref(old.LiveEdge, 0), old.LastAdvanceTime, r.Result, now)
+			line.LiveEdge = new(edge)
 		}
 		line.Reason, line.Message = v.reason, v.message
 		lines = append(lines, line)

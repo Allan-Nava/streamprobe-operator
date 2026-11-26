@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -188,7 +189,7 @@ func (r *StreamProbeReconciler) record(sp *streamingv1alpha1.StreamProbe, res *p
 	if res == nil {
 		return
 	}
-	liveEdgeGauge.WithLabelValues(ns, name).Set(float64(sp.Status.LiveEdge))
+	liveEdgeGauge.WithLabelValues(ns, name).Set(float64(ptr.Deref(sp.Status.LiveEdge, 0)))
 	if sp.Status.LastAdvanceTime != nil {
 		sinceAdvanceGauge.WithLabelValues(ns, name).Set(now.Sub(sp.Status.LastAdvanceTime.Time).Seconds())
 	}
