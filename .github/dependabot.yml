@@ -25,6 +25,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # backlogsync tags its action `backlogsync--vX.Y.Z`; Dependabot reads that as a version older
+    # than 0.1.1 and proposed going from backlogsync--v0.2.0 back to 0.1.1, which broke the
+    # Backlog check (#21). It is the owner's own tool: bumped by hand with its releases.
+    ignore:
+      - dependency-name: "Allan-Nava/backlogsync"
     groups:
       actions:
         patterns: ["*"]
