@@ -30,6 +30,10 @@
     "docs": [
       "0075ca",
       "README, agent files, write-ups"
+    ],
+    "deps": [
+      "0366d6",
+      "Dependencies and their security alerts"
     ]
   },
   "closeMilestones": true,
