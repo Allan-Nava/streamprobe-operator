@@ -1,0 +1,35 @@
+# Version updates (security updates are on in the repository settings too).
+#
+# Go modules weekly, with the Kubernetes libraries in one group: k8s.io/* and
+# sigs.k8s.io/controller-runtime move together, and a pull request that bumps one of them alone
+# usually does not build. The indirect ones (gRPC, OpenTelemetry) come in through them, which is
+# how 8 alerts piled up before this file existed (SP-20).
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      kubernetes:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+      go-minor-and-patch:
+        update-types: [minor, patch]
+        exclude-patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

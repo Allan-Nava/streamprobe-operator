@@ -66,6 +66,12 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   pages on v0.11.0 (its table fix applies to `reference.html` on phones), and
   `nava-ui-update.yml`, weekly, puts a newer release on a branch `nava-ui/<tag>` and opens a pull
   request, or an issue with the link when Actions may not open pull requests. <!-- sp: prio=low size=S labels=docs,ci ver=main -->
+- [x] **SP-20 — Dependency alerts**: 8 Dependabot alerts, all indirect modules pulled in by the
+  Kubernetes libraries: gRPC (two high: an xDS crash, HTTP/2 memory exhaustion) and
+  OpenTelemetry. Done: gRPC 1.83.2 and OpenTelemetry 1.47.0, the first versions that fix them
+  all, with what they pull along; `make test` and `make lint` green. `.github/dependabot.yml`
+  proposes Go modules (Kubernetes ones grouped), actions and the Docker base images weekly, so
+  they do not pile up again. <!-- sp: prio=high size=S labels=deps,ci ver=main -->
 
 ## v0.3.0 — Seen from Grafana <!-- ms: phase=later -->
 
