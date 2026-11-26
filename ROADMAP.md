@@ -4,14 +4,14 @@
 
 > This page is **generated** from [BACKLOG.md](BACKLOG.md), the single source of truth for planned work. Regenerate it with `npx backlogsync roadmap` after editing the backlog — CI fails when the two disagree.
 
-**18 items · 12 shipped · 6 open · 5 milestones.**
+**19 items · 13 shipped · 6 open · 5 milestones.**
 
 ## At a glance
 
 | Milestone | Phase | Progress | Open | Shipped |
 |---|---|---|---|---|
 | **v0.1.0 — A probe that reconciles** | shipped | `##########` 100% | 0 | 5 |
-| **v0.2.0 — On a real cluster** | next | `########..` 75% | 1 | 3 |
+| **v0.2.0 — On a real cluster** | next | `########..` 80% | 1 | 4 |
 | **v0.3.0 — Seen from Grafana** | later | `##########` 100% | 0 | 2 |
 | **v0.4.0 — Probes that know more** | later | `####......` 40% | 3 | 2 |
 | **v0.5.0 — Probes as workloads** | later | `..........` 0% | 2 | 0 |
@@ -30,6 +30,7 @@
 - [x] **SP-7** — Image and releases · high · M · deploy, ci · `main`
 - [x] **SP-8** — Helm chart · med · M · deploy · `main`
 - [ ] **SP-9** — Running on the Raspberry Pi · med · M · deploy, docs
+- [x] **SP-19** — nava-ui follows the kit's releases · low · S · docs, ci · `main`
 
 ## v0.3.0 — Seen from Grafana
 

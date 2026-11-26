@@ -37,7 +37,8 @@ test/e2e/                            kind end-to-end suite (make test-e2e); test
 docs/                                the GitHub Pages site: index (overview), how-it-works (the guide),
                                      reference, raspberry-pi, kubebuilder (the tool from zero: generated
                                      vs. written files, markers, make targets, recipes); plain HTML
-                                     with nava-ui from the CDN; pages.yml deploys it
+                                     with nava-ui from the CDN at a fixed tag
+                                     (nava-ui-update.yml proposes each new release); pages.yml deploys it
 deploy/argocd/                       Argo CD Applications: the operator from dist/chart, the streams
                                      from deploy/probes/ (one StreamProbe per file, listed in its
                                      kustomization); the Raspberry Pi guide is docs/raspberry-pi.html

@@ -61,6 +61,11 @@ From envtest to a cluster: the image, the install, and a test that runs the oper
   `dist/chart`, the streams from `deploy/probes/`), three test streams, and the guide
   `docs/raspberry-pi.html` (k3s without Traefik next to Docker, Argo CD core, metrics). Done
   when the probes are Live on the Pi. <!-- sp: prio=med size=M labels=deploy,docs -->
+- [x] **SP-19 — nava-ui follows the kit's releases**: the documentation pages load nava-ui
+  from jsDelivr at a fixed tag, which nothing updated (Dependabot sees no manifest). Done: the
+  pages on v0.11.0 (its table fix applies to `reference.html` on phones), and
+  `nava-ui-update.yml`, weekly, puts a newer release on a branch `nava-ui/<tag>` and opens a pull
+  request, or an issue with the link when Actions may not open pull requests. <!-- sp: prio=low size=S labels=docs,ci ver=main -->
 
 ## v0.3.0 — Seen from Grafana <!-- ms: phase=later -->
 

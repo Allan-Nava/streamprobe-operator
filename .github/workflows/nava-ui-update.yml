@@ -1,0 +1,83 @@
+# nava-ui update: the documentation pages load nava-ui from jsDelivr at a fixed tag
+# (cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@vX.Y.Z/...). When the kit has a newer release, this
+# replaces the tag in docs/*.html on a branch nava-ui/<tag> and opens a pull request, so the
+# pages are looked at before they change (a release can change colours or a component).
+#
+# Dependabot cannot do it: the kit is a CDN URL in HTML, not a dependency in a manifest.
+#
+# Opening the pull request needs "Allow GitHub Actions to create and approve pull requests"
+# (Settings → Actions → General). Without it, `gh pr create` is refused, and the job opens an
+# issue with the link to create the pull request from the pushed branch instead.
+name: nava-ui update
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nava-ui-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Pinned and latest release
+        id: v
+        run: |
+          pinned="$(grep -ho 'nava-ui@v[0-9][0-9.]*' docs/*.html | sed 's/nava-ui@//' | sort -uV | tail -1)"
+          latest="$(gh api repos/Allan-Nava/nava-ui/releases/latest --jq .tag_name)"
+          if [ -z "$pinned" ] || [ -z "$latest" ]; then
+            echo "::error::could not read the pinned ($pinned) or the latest ($latest) version"
+            exit 1
+          fi
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          newest="$(printf '%s\n%s\n' "${pinned#v}" "${latest#v}" | sort -V | tail -1)"
+          if [ "$pinned" = "$latest" ] || [ "$newest" != "${latest#v}" ]; then
+            echo "::notice::The docs are on $pinned, the latest nava-ui release: nothing to do."
+            echo "todo=false" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads origin "nava-ui/$latest" >/dev/null; then
+            echo "::notice::The branch nava-ui/$latest exists already: its pull request or issue is pending."
+            echo "todo=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "todo=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Branch, then pull request (or issue)
+        if: steps.v.outputs.todo == 'true'
+        env:
+          PINNED: ${{ steps.v.outputs.pinned }}
+          LATEST: ${{ steps.v.outputs.latest }}
+        run: |
+          branch="nava-ui/$LATEST"
+          sed -i "s#nava-ui@v[0-9][0-9.]*/#nava-ui@$LATEST/#g" docs/*.html
+          for f in nava-ui.min.css nava-ui.min.js; do
+            curl -fsSI "https://cdn.jsdelivr.net/gh/Allan-Nava/nava-ui@$LATEST/dist/$f" >/dev/null \
+              || { echo "::error::$f is not on jsDelivr for $LATEST"; exit 1; }
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "docs: nava-ui $LATEST (from $PINNED)"
+          git push origin "$branch"
+          body="The documentation pages load nava-ui **$LATEST** instead of $PINNED (\`docs/*.html\`, the jsDelivr URLs).
+
+          Release notes: https://github.com/Allan-Nava/nava-ui/releases/tag/$LATEST
+
+          Look at the pages before merging: the deploy of \`pages.yml\` runs on main."
+          if ! gh pr create --base main --head "$branch" --title "docs: nava-ui $LATEST" --body "$body"; then
+            gh issue create --title "docs: nava-ui $LATEST is out" --body "$body
+
+          Actions may not open pull requests in this repository, so the branch \`$branch\` is pushed and the pull request is yours to open: https://github.com/${{ github.repository }}/compare/main...$branch?expand=1"
+          fi
